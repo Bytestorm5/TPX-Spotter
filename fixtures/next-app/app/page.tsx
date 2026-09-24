@@ -13,6 +13,18 @@ export default function Home() {
     <>
       <h1>Gear for the long way round.</h1>
       <p className="lede">Technical outerwear and layers, tested on real mountains. Free returns for 60 days.</p>
+      <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
+        <SpotterTrigger asChild mode="feature">
+          <button type="button" className="btn secondary" data-testid="suggest">
+            Suggest a feature
+          </button>
+        </SpotterTrigger>
+        <SpotterTrigger asChild mode="picker">
+          <button type="button" className="btn secondary" data-testid="point">
+            Point at a problem
+          </button>
+        </SpotterTrigger>
+      </div>
       <div className="grid">
         {PRODUCTS.map((p) => (
           <article key={p.id} id={`product-${p.id}`} className="card product" data-testid={`product-${p.id}`}>

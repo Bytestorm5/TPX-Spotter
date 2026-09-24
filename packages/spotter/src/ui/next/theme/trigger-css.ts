@@ -21,7 +21,7 @@ animation:sp-trigger-in .28s cubic-bezier(.2,.8,.2,1) both}
 .sp-trigger[data-position="bottom-left"]{bottom:var(--sp-offset,20px);left:var(--sp-offset,20px)}
 .sp-trigger[data-position="top-right"]{top:var(--sp-offset,20px);right:var(--sp-offset,20px)}
 .sp-trigger[data-position="top-left"]{top:var(--sp-offset,20px);left:var(--sp-offset,20px)}
-.sp-trigger[aria-expanded="true"]{opacity:0;pointer-events:none;transform:scale(.9)}
+.sp-trigger[aria-expanded="true"]{animation:none;opacity:0;pointer-events:none;transform:scale(.9)}
 .sp-tip{position:absolute;bottom:calc(100% + 10px);right:0;white-space:nowrap;padding:6px 9px;border-radius:7px;
 background:var(--sp-text,#18181b);color:var(--sp-bg,#fff);font:500 12px/1.2 var(--sp-font,system-ui);opacity:0;transform:translateY(3px);
 pointer-events:none;transition:opacity .15s,transform .15s;box-shadow:0 4px 12px -2px rgba(0,0,0,.25)}

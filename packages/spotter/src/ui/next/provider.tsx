@@ -52,6 +52,7 @@ function publicEnv() {
     }
   };
   return {
+    project: read(() => process.env.NEXT_PUBLIC_SPOTTER_PROJECT),
     release: read(() => process.env.NEXT_PUBLIC_SPOTTER_RELEASE),
     commit: read(() => process.env.NEXT_PUBLIC_SPOTTER_COMMIT),
     deployId: read(() => process.env.NEXT_PUBLIC_SPOTTER_DEPLOY_ID),
@@ -94,6 +95,7 @@ export function SpotterProvider({ children, nonce, ...props }: SpotterProviderPr
   const config = useMemo<SpotterConfig>(
     () => ({
       ...props,
+      project: props.project ?? env.project,
       environment: props.environment ?? env.environment,
       release: props.release ?? (env.release || env.commit ? { version: env.release, commit: env.commit, deployId: env.deployId } : undefined),
     }),
