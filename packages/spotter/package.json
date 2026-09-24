@@ -1,0 +1,63 @@
+{
+  "name": "@trusplex/spotter",
+  "version": "0.1.0",
+  "description": "Spotter — embeddable issue capture for Trusplex: screenshots, replay, console, network and environment in every report, plus privacy-first web analytics.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "schema",
+    "README.md"
+  ],
+  "exports": {
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./ui/next": {
+      "types": "./dist/ui/next/index.d.ts",
+      "default": "./dist/ui/next/index.js"
+    },
+    "./schema/spotter.report.v1.json": "./schema/spotter.report.v1.json",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "trusplex": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "check:size": "node scripts/check-size.mjs",
+    "check:features": "node scripts/check-features.mjs"
+  },
+  "peerDependencies": {
+    "next": ">=15.3.0",
+    "react": ">=18.3.0",
+    "react-dom": ">=18.3.0"
+  },
+  "peerDependenciesMeta": {
+    "next": { "optional": true },
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
+  },
+  "dependencies": {
+    "@rrweb/record": "2.1.6",
+    "@rrweb/types": "2.1.6",
+    "fflate": "0.8.3",
+    "modern-screenshot": "4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "esbuild": "0.28.2",
+    "happy-dom": "20.14.5",
+    "next": "16.3.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.1"
+  }
+}

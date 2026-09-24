@@ -141,3 +141,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Spotter
+dist/
+.next/
+out/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.spotter/
