@@ -24,8 +24,11 @@ import type {
   TargetingRule,
   AnalyticsEvent,
   FieldValue,
+  AnnotationShape,
+  PageInfo,
 } from "./schema.ts";
 import type { FeatureName } from "./features.ts";
+import type { ScreenshotResult } from "./internal.ts";
 
 // -- config -------------------------------------------------------------------------
 
@@ -174,6 +177,26 @@ export interface ReportInput {
   tags?: Record<string, string>;
   /** Reporter contact for this report (when not identified). */
   email?: string;
+  /**
+   * Server-side: the incoming request. Its `x-spotter-session` and
+   * `traceparent` headers link this report to the browser session and trace
+   * (see also `spotter.withRequest(request)`).
+   */
+  request?: RequestLike;
+}
+
+/** `captureException` context: structured extras plus the same `tags` / `request` as `report()`. */
+export type ExceptionContext = {
+  tags?: Record<string, string>;
+  request?: RequestLike;
+  [key: string]: Json | RequestLike | undefined;
+};
+
+/** Anything with headers: a Fetch `Request`, `NextRequest`, or Node's `IncomingMessage`. */
+export interface RequestLike {
+  headers: Headers | Record<string, string | string[] | undefined>;
+  url?: string;
+  method?: string;
 }
 
 export interface OpenOptions {
@@ -242,7 +265,8 @@ export interface SpotterClient {
   flag(name: string, options?: FlagOptions): void;
   assert(condition: unknown, name: string, data?: Record<string, Json>): asserts condition;
   report(input: ReportInput): Promise<ReportReceipt>;
-  captureException(error: unknown, context?: Record<string, Json> & { tags?: Record<string, string> }): Promise<ReportReceipt | null>;
+  /** Extra keys become the `exception` context; `tags` and (server) `request` are applied like `report()`'s. */
+  captureException(error: unknown, context?: ExceptionContext): Promise<ReportReceipt | null>;
   status(id: string): Promise<ReportStatusView | null>;
   reply(id: string, body: string): Promise<ReportStatusView | null>;
   similar(page?: { url?: string; selector?: string }): Promise<SimilarIssue[]>;
@@ -264,6 +288,117 @@ export interface SpotterClient {
 }
 
 export type RedactionSite = "console" | "network" | "text" | "url" | "breadcrumb" | "error" | "context";
+
+// -- widget flow (used by ui/next; public so custom UIs can drive the same flow) -----------
+
+export type PreloadableFeature = "widget" | "screenshot" | "annotate" | "replay" | "recording";
+
+export interface WidgetCaptureOptions {
+  /** The element being reported (element picker / `trigger` element reports). */
+  element?: Element;
+  /** Or a point: the element under it becomes `page.selector`. */
+  point?: { x: number; y: number };
+  /** `false` for text-only / feature-request flows. Default `viewport` when the screenshot feature is on. */
+  screenshot?: boolean | "viewport" | "full" | "element";
+  /** Elements to leave out of the screenshot (the Spotter UI host is always left out). */
+  exclude?: Element[];
+}
+
+/** What to show the reporter: plain-language list of what will be attached. */
+export interface AttachmentSummary {
+  kind: "screenshot" | "replay" | "console" | "network" | "errors" | "environment" | "dom" | "storage" | "attachment";
+  /** Stable, locale-free label key; the UI localizes it. */
+  label: string;
+  count?: number;
+}
+
+/** The moment the trigger was pressed: taken before the panel opens, so the panel is never in it. */
+export interface WidgetCapture {
+  id: string;
+  capturedAt: string;
+  screenshot?: ScreenshotResult;
+  page: Partial<PageInfo>;
+  attachments: AttachmentSummary[];
+  /** Test mode (`environment: 'development'`): show the Test ribbon. */
+  test: boolean;
+}
+
+export interface WidgetDraft {
+  /** From `captureForReport()`; without it the signals are snapshotted at submit time. */
+  captureId?: string;
+  title?: string;
+  description: string;
+  expected?: string;
+  category?: Category;
+  severity?: Severity;
+  fields?: Record<string, FieldValue>;
+  annotations?: AnnotationShape[];
+  /** The screenshot with annotations burned in (PNG). */
+  annotatedScreenshot?: Blob;
+  /** Items the reporter removed in "review before send" (`false` drops it). */
+  include?: Partial<Record<AttachmentSummary["kind"], boolean>>;
+  /** Contact when not identified. */
+  email?: string;
+  recording?: { blob: Blob; contentType?: string; startedAt?: string; endedAt?: string };
+  files?: (File | Attachment)[];
+  turnstileToken?: string;
+  mode?: "report" | "text" | "feature" | "recording";
+}
+
+/** A report this browser filed, kept (with its capability token) in localStorage for status and replies. */
+export interface StoredReport {
+  id: string;
+  ref: string;
+  title: string;
+  createdAt: string;
+  statusUrl?: string;
+  queued?: boolean;
+  lastStatus?: PublicStatus;
+}
+
+export interface RecordingSession {
+  /** Stop and get the recording. */
+  stop(): Promise<{ blob: Blob; contentType: string; startedAt: string; endedAt: string }>;
+  cancel(): void;
+}
+
+/**
+ * The widget-facing half of the client. `ui/next` drives its flow through
+ * these; a custom UI can too. Nothing here is needed for code-only reporting.
+ */
+export interface SpotterWidgetApi {
+  /** Load a feature's lazy chunk ahead of use (trigger hover / focus). */
+  preload(feature: PreloadableFeature): Promise<void>;
+  /** Resolves once the core engine is loaded and signals are installed. */
+  ready(): Promise<void>;
+  captureForReport(options?: WidgetCaptureOptions): Promise<WidgetCapture>;
+  submitFromWidget(draft: WidgetDraft): Promise<ReportReceipt>;
+  discardCapture(id: string): void;
+  /** UI state machine → `state` and `statusChange` events. */
+  setState(state: SpotterState): void;
+  /** Remote config as applied (already narrowed), or null before it's fetched. */
+  remoteConfig(): RemoteConfig | null;
+  reporterMode(): ReporterMode;
+  /** Team mode: sign in with Console in a popup. Resolves with the new mode, or null if cancelled. */
+  connectTeam(): Promise<ReporterMode | null>;
+  disconnectTeam(): void;
+  /** Reports filed from this browser (newest first), for `<SpotterStatus/>` and the portal link. */
+  myReports(): StoredReport[];
+  /** Route-pattern resolver from the framework integration (App Router). */
+  setRouteResolver(fn: ((url: string) => string | undefined) | null): void;
+  /** Screen recording (`features.recording`). */
+  startRecording(options?: { mic?: boolean; maxMs?: number; onTick?: (ms: number) => void }): Promise<RecordingSession>;
+  /** Send batched flags / events now. Await it at the end of a server action or route handler. */
+  flush(): Promise<void>;
+  /** Server: a scope whose reports link to the browser session and trace in `request`'s headers. */
+  withRequest(request: RequestLike): SpotterRequestScope;
+}
+
+export interface SpotterRequestScope {
+  report(input: ReportInput): Promise<ReportReceipt>;
+  captureException(error: unknown, context?: ExceptionContext): Promise<ReportReceipt | null>;
+  flag(name: string, options?: FlagOptions): void;
+}
 
 // -- transport ------------------------------------------------------------------------
 

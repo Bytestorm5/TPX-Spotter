@@ -435,6 +435,12 @@ export interface ReportReceipt {
   token: string;
   /** One entry per declared artifact. */
   uploads: { name: string; url: string }[];
+  /**
+   * Client-side only: the submit failed and the report sits in the offline
+   * queue. `id` is provisional (`pending_…`), `ref` is `SPT-PENDING-xxxx`;
+   * the queue delivers it later and `status()` follows the real id.
+   */
+  queued?: boolean;
 }
 
 export interface ReportStatusView {

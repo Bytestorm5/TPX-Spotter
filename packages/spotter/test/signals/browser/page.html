@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Spotter harness</title>
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+  header { position: fixed; top: 0; left: 0; right: 0; height: 48px; background: #1e40af; color: white; display: flex; align-items: center; padding: 0 16px; z-index: 10; }
+  main { padding: 64px 16px 16px; }
+  .card { background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin: 12px 0; }
+  .ad { width: 300px; height: 80px; background: repeating-linear-gradient(45deg, #fde047, #fde047 10px, #f97316 10px, #f97316 20px); }
+  input, textarea { font: inherit; padding: 4px; margin: 4px 0; display: block; width: 320px; }
+  #spotter-ui { position: fixed; right: 16px; bottom: 16px; background: #dc2626; color: white; padding: 12px; border-radius: 8px; }
+  .filler { height: 400px; background: linear-gradient(#e2e8f0, #94a3b8); }
+</style>
+</head>
+<body>
+<header>Fixed header — Acme Shop</header>
+<main>
+  <div class="filler">filler above</div>
+  <div class="card" id="visible-card">
+    <h2>Checkout for Jane Visible</h2>
+    <p data-spotter-mask>MASKED_ACCOUNT 12345</p>
+    <p class="pii">PII_CLASS_TEXT</p>
+    <div data-spotter-mask><p data-spotter-unmask>UNMASKED_INSIDE</p></div>
+    <input id="email" type="email" value="secret@example.com">
+    <input id="pw" type="password" value="hunter2">
+    <textarea id="note">PRIVATE_NOTE</textarea>
+    <div data-spotter-block>BLOCKED_SECRET <img alt="x" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='red'/%3E%3C/svg%3E"></div>
+    <div class="ad">AD_TEXT</div>
+    <canvas id="cv" width="100" height="40"></canvas>
+    <div id="scroller" style="height:44px;overflow:auto;border:1px solid #64748b;width:320px"><p style="margin:0">SCROLL_LINE_1</p><p style="margin:0">SCROLL_LINE_2</p><p style="margin:0">SCROLL_LINE_3</p><p style="margin:0">SCROLL_LINE_4_BOTTOM</p></div>
+    <button id="pay">Pay now</button>
+    <button id="dead">Does nothing</button>
+  </div>
+  <div class="filler">filler below</div>
+</main>
+<div id="spotter-ui" data-spotter-ui>SPOTTER_UI_PANEL</div>
+<script src="harness.js"></script>
+<script>
+  const cv = document.getElementById('cv').getContext('2d'); cv.fillStyle = 'green'; cv.fillRect(0,0,100,40);
+  document.getElementById('pay').addEventListener('click', () => { const p = document.createElement('p'); p.textContent = 'Paid!'; document.querySelector('#visible-card').appendChild(p); });
+</script>
+</body>
+</html>

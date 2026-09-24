@@ -1,0 +1,1412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://console.trusplex.com/schemas/spotter.report.v1.json",
+  "title": "spotter.report.v1",
+  "description": "The Spotter ticket: what every report becomes, and what Dispatcher, Console, webhooks and hooks consume. Timestamps are ISO-8601; durations and offsets are milliseconds. Additive changes only within v1.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "spotter.report.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "ref": {
+      "type": "string",
+      "description": "Human reference, e.g. SPT-4821."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "widget",
+        "api",
+        "flag",
+        "error",
+        "server"
+      ]
+    },
+    "test": {
+      "type": "boolean",
+      "description": "Test-mode reports go to a separate inbox."
+    },
+    "fingerprint": {
+      "type": "string",
+      "description": "Grouping key."
+    },
+    "reporter": {
+      "$ref": "#/$defs/reporter"
+    },
+    "content": {
+      "$ref": "#/$defs/content"
+    },
+    "page": {
+      "$ref": "#/$defs/page"
+    },
+    "environment": {
+      "$ref": "#/$defs/environment"
+    },
+    "release": {
+      "$ref": "#/$defs/release"
+    },
+    "context": {
+      "$ref": "#/$defs/context"
+    },
+    "signals": {
+      "$ref": "#/$defs/signals"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "trace": {
+      "$ref": "#/$defs/trace"
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The agent-readable timeline, one step per line."
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "sdk": {
+      "$ref": "#/$defs/sdk"
+    },
+    "flag": {
+      "description": "When the report came from a promoted flag.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "occurrences": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "occurrences"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "ref",
+    "createdAt",
+    "source",
+    "test",
+    "fingerprint",
+    "reporter",
+    "content",
+    "page",
+    "environment",
+    "release",
+    "context",
+    "signals",
+    "artifacts",
+    "trace",
+    "timeline",
+    "status",
+    "sdk"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "json": {
+      "description": "Any JSON value."
+    },
+    "fieldValue": {
+      "description": "A custom field value: string | number | boolean | string[] | null.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "reporter": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "From identify({ id }); absent for anonymous reporters."
+        },
+        "email": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "traits": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/json"
+          },
+          "description": "Everything else passed to identify() (plan, role, …)."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "public",
+            "guest",
+            "team"
+          ]
+        },
+        "contact": {
+          "type": "string",
+          "enum": [
+            "email",
+            "in_app",
+            "none"
+          ],
+          "description": "How the reporter wants to hear back."
+        }
+      },
+      "required": [
+        "traits",
+        "type",
+        "contact"
+      ],
+      "additionalProperties": false
+    },
+    "annotationShape": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string",
+          "enum": [
+            "arrow",
+            "rect",
+            "freehand",
+            "text",
+            "pin",
+            "blur"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Points in screenshot pixel space."
+        },
+        "color": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool",
+        "points"
+      ],
+      "additionalProperties": false
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expected": {
+          "type": "string",
+          "description": "The optional \"What did you expect?\" answer."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "bug",
+            "ux",
+            "content",
+            "performance",
+            "question",
+            "feature"
+          ]
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/fieldValue"
+          },
+          "description": "Custom field values keyed by field id."
+        },
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/annotationShape"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "category",
+        "severity",
+        "fields",
+        "annotations"
+      ],
+      "additionalProperties": false
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ]
+    },
+    "page": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "routePattern": {
+          "type": "string",
+          "description": "e.g. /blog/[slug]"
+        },
+        "title": {
+          "type": "string"
+        },
+        "referrer": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string",
+          "description": "CSS selector of the element the report is about."
+        },
+        "domExcerpt": {
+          "type": "string",
+          "description": "Redacted outerHTML excerpt, ≤ 8 KB."
+        },
+        "nearbyText": {
+          "type": "string",
+          "description": "Visible text near the selection, redacted, ≤ 2 KB."
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The last ≤ 20 URLs visited in this tab, oldest first."
+        }
+      },
+      "required": [
+        "url",
+        "history"
+      ],
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": [
+            "browser",
+            "node",
+            "edge"
+          ]
+        },
+        "userAgent": {
+          "type": "string"
+        },
+        "browser": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "os": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "device": {
+          "type": "string",
+          "enum": [
+            "desktop",
+            "mobile",
+            "tablet",
+            "server",
+            "unknown"
+          ]
+        },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "screen": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "dpr": {
+          "type": "number"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "timeZone": {
+          "type": "string"
+        },
+        "colorScheme": {
+          "type": "string",
+          "enum": [
+            "light",
+            "dark"
+          ]
+        },
+        "reducedMotion": {
+          "type": "boolean"
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "online": {
+              "type": "boolean"
+            },
+            "type": {
+              "type": "string"
+            },
+            "effectiveType": {
+              "type": "string"
+            },
+            "downlink": {
+              "type": "number"
+            },
+            "rtt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "online"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runtime",
+        "device"
+      ],
+      "additionalProperties": false
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "deployId": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string",
+          "description": "production, preview, staging, development, …"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Indexed, filterable string tags."
+        },
+        "contexts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/json"
+            }
+          },
+          "description": "Named structured context (setContext)."
+        },
+        "flags": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/json"
+          },
+          "description": "Evaluated feature-flag values."
+        }
+      },
+      "required": [
+        "tags",
+        "contexts",
+        "flags"
+      ],
+      "additionalProperties": false
+    },
+    "consoleEntry": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "log",
+            "info",
+            "warn",
+            "error",
+            "debug"
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/json"
+          }
+        },
+        "stack": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "at",
+        "args"
+      ],
+      "additionalProperties": false
+    },
+    "stackFrame": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "number"
+        },
+        "column": {
+          "type": "number"
+        },
+        "original": {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "number"
+            },
+            "column": {
+              "type": "number"
+            },
+            "function": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file",
+            "line",
+            "column"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "errorEntry": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "type": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stack": {
+          "type": "string"
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stackFrame"
+          }
+        },
+        "mechanism": {
+          "type": "string",
+          "enum": [
+            "uncaught",
+            "unhandledrejection",
+            "boundary",
+            "captured",
+            "server"
+          ]
+        },
+        "componentStack": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "type",
+        "message",
+        "frames",
+        "mechanism"
+      ],
+      "additionalProperties": false
+    },
+    "harEntry": {
+      "type": "object",
+      "properties": {
+        "startedDateTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "time": {
+          "type": "number"
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "httpVersion": {
+              "type": "string"
+            },
+            "headers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "queryString": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "cookies": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "headersSize": {
+              "const": -1
+            },
+            "bodySize": {
+              "type": "number"
+            },
+            "postData": {
+              "type": "object",
+              "properties": {
+                "mimeType": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "mimeType",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "method",
+            "url",
+            "httpVersion",
+            "headers",
+            "queryString",
+            "cookies",
+            "headersSize",
+            "bodySize"
+          ],
+          "additionalProperties": false
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "number"
+            },
+            "statusText": {
+              "type": "string"
+            },
+            "httpVersion": {
+              "type": "string"
+            },
+            "headers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "cookies": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "content": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "number"
+                },
+                "mimeType": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "size",
+                "mimeType"
+              ],
+              "additionalProperties": false
+            },
+            "redirectURL": {
+              "type": "string"
+            },
+            "headersSize": {
+              "const": -1
+            },
+            "bodySize": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "status",
+            "statusText",
+            "httpVersion",
+            "headers",
+            "cookies",
+            "content",
+            "redirectURL",
+            "headersSize",
+            "bodySize"
+          ],
+          "additionalProperties": false
+        },
+        "cache": {
+          "type": "object",
+          "maxProperties": 0
+        },
+        "timings": {
+          "type": "object",
+          "properties": {
+            "send": {
+              "type": "number"
+            },
+            "wait": {
+              "type": "number"
+            },
+            "receive": {
+              "type": "number"
+            },
+            "blocked": {
+              "type": "number"
+            },
+            "dns": {
+              "type": "number"
+            },
+            "connect": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "send",
+            "wait",
+            "receive"
+          ],
+          "additionalProperties": false
+        },
+        "_initiator": {
+          "type": "string",
+          "enum": [
+            "fetch",
+            "xhr",
+            "beacon"
+          ]
+        },
+        "_traceparent": {
+          "type": "string"
+        },
+        "_error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "startedDateTime",
+        "time",
+        "request",
+        "response",
+        "cache",
+        "timings"
+      ],
+      "additionalProperties": false
+    },
+    "har": {
+      "description": "HAR 1.2, trimmed to what Spotter records.",
+      "type": "object",
+      "properties": {
+        "log": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "const": "1.2"
+            },
+            "creator": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "version"
+              ],
+              "additionalProperties": false
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/harEntry"
+              }
+            }
+          },
+          "required": [
+            "version",
+            "creator",
+            "entries"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "log"
+      ],
+      "additionalProperties": false
+    },
+    "breadcrumb": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "click",
+            "input",
+            "scroll",
+            "focus",
+            "navigation",
+            "network",
+            "console",
+            "error",
+            "custom",
+            "rage_click",
+            "dead_click",
+            "error_click"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "selector": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/json"
+          }
+        }
+      },
+      "required": [
+        "at",
+        "category",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "navigationEntry": {
+      "type": "object",
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "push",
+            "replace",
+            "pop",
+            "load",
+            "hash"
+          ]
+        },
+        "routePattern": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "to",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "performance": {
+      "type": "object",
+      "properties": {
+        "lcp": {
+          "type": "number"
+        },
+        "inp": {
+          "type": "number"
+        },
+        "cls": {
+          "type": "number"
+        },
+        "ttfb": {
+          "type": "number"
+        },
+        "fcp": {
+          "type": "number"
+        },
+        "longTasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "duration": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "at",
+              "duration"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "memory": {
+          "type": "object",
+          "properties": {
+            "usedJSHeapSize": {
+              "type": "number"
+            },
+            "totalJSHeapSize": {
+              "type": "number"
+            },
+            "jsHeapSizeLimit": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "usedJSHeapSize",
+            "totalJSHeapSize",
+            "jsHeapSizeLimit"
+          ],
+          "additionalProperties": false
+        },
+        "slowResources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "number"
+              },
+              "initiatorType": {
+                "type": "string"
+              },
+              "transferSize": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "url",
+              "duration",
+              "initiatorType"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "longTasks",
+        "slowResources"
+      ],
+      "additionalProperties": false
+    },
+    "storage": {
+      "description": "Keys only, unless a key is allowlisted.",
+      "type": "object",
+      "properties": {
+        "localStorage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sessionStorage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "cookies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "localStorage",
+        "sessionStorage",
+        "cookies"
+      ],
+      "additionalProperties": false
+    },
+    "signals": {
+      "type": "object",
+      "properties": {
+        "console": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/consoleEntry"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/errorEntry"
+          }
+        },
+        "network": {
+          "$ref": "#/$defs/har"
+        },
+        "breadcrumbs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/breadcrumb"
+          }
+        },
+        "navigation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/navigationEntry"
+          }
+        },
+        "performance": {
+          "$ref": "#/$defs/performance"
+        },
+        "storage": {
+          "$ref": "#/$defs/storage"
+        }
+      },
+      "required": [
+        "console",
+        "errors",
+        "network",
+        "breadcrumbs",
+        "navigation"
+      ],
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "screenshot",
+            "annotated_screenshot",
+            "replay",
+            "recording",
+            "attachment",
+            "dom_snapshot"
+          ]
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "size": {
+          "type": "number",
+          "description": "Bytes, after compression."
+        },
+        "url": {
+          "type": "string",
+          "description": "A short-lived signed URL, set by the ingest. Absent while uploading."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "uploading",
+            "stored",
+            "failed"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "contentType",
+        "size",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "traceparents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "serverEvents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "report",
+                  "flag"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "traceparent": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "at",
+              "kind",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "traceparents",
+        "serverEvents"
+      ],
+      "additionalProperties": false
+    },
+    "publicStatus": {
+      "type": "string",
+      "enum": [
+        "received",
+        "in_progress",
+        "needs_info",
+        "resolved",
+        "wont_fix"
+      ]
+    },
+    "statusChange": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/publicStatus"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "message": {
+          "type": "string"
+        },
+        "release": {
+          "type": "string"
+        },
+        "actor": {
+          "type": "string",
+          "description": "Internal actor; never shown to the reporter."
+        }
+      },
+      "required": [
+        "status",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "public": {
+          "$ref": "#/$defs/publicStatus"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statusChange"
+          }
+        }
+      },
+      "required": [
+        "public",
+        "history"
+      ],
+      "additionalProperties": false
+    },
+    "sdk": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "const": "@trusplex/spotter"
+        },
+        "version": {
+          "type": "string"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "features"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
