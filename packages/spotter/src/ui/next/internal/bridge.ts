@@ -34,7 +34,6 @@ export function loadClient(): Promise<Client> {
     // `singleton.ts`, not the core index: the index also carries hooks, the ingest handler and transports.
     clientPromise = (import("../../../core/singleton.ts") as Promise<unknown>).then((m) => {
       client = (m as CoreModule).spotter;
-      trackIdentity(client);
       return client;
     });
     clientPromise.catch(() => {
@@ -108,33 +107,14 @@ export function reporterMode(): ReporterMode {
 }
 
 type Identity = { id?: string; email?: string; name?: string };
-let seenIdentity: Identity | null = null;
-
-/**
- * Stopgap until the client exposes `identity()`: observe `identify()` calls
- * on the singleton so the Contact step can be skipped. Only sees calls made
- * after core loaded; a client with `identity()` makes this a no-op.
- */
-function trackIdentity(c: Client): void {
-  const withGetter = c as Client & { identity?: () => Identity | null; __spotterUiIdentity?: true };
-  if (typeof withGetter.identity === "function" || withGetter.__spotterUiIdentity) return;
-  const original = c.identify.bind(c);
-  withGetter.__spotterUiIdentity = true;
-  c.identify = (user) => {
-    seenIdentity = user ? { id: user.id, email: user.email, name: user.name } : null;
-    original(user);
-  };
-}
 
 /** Whether `identify()` was called (the Contact step is skipped then). */
 export function identity(): Identity | null {
-  const c = client as (Client & { identity?: () => Identity | null }) | null;
   try {
-    if (typeof c?.identity === "function") return c.identity();
+    return client?.identity?.() ?? null;
   } catch {
-    /* fall through */
+    return null;
   }
-  return seenIdentity;
 }
 
 export function remoteConfig() {

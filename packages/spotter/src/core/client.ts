@@ -481,6 +481,15 @@ export function createSpotter(): SpotterInstance {
     devDetails: (captureId) => engine?.devDetails(captureId) ?? null,
     setState,
     remoteConfig: () => remote,
+    identity() {
+      const u = scope.user;
+      if (!u) return null;
+      return {
+        id: u.id,
+        ...(typeof u.email === "string" ? { email: u.email } : {}),
+        ...(typeof u.name === "string" ? { name: u.name } : {}),
+      };
+    },
     reporterMode() {
       const { teamToken: _t, guestToken: _g, ...mode } = reporterMode();
       return mode;

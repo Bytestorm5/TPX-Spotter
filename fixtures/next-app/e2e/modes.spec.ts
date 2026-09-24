@@ -125,9 +125,6 @@ test.describe("alternate flows", () => {
   test("contact is skipped when identify() was called", async ({ page }) => {
     await useVariant(page, { sp_identify: "1" });
     await visit(page, "/blog/winter-layering-guide");
-    // Needs the client's identity() getter (requested from core); without it an identify() made before core loads is invisible to the UI.
-    const hasIdentity = await page.evaluate(() => typeof (window as any).__trusplexSpotter?.identity === "function");
-    test.skip(!hasIdentity, "core client lacks identity(): pending integration");
     await trigger(page).click();
     const d = dialog(page);
     await expect(d.locator("#sp-desc")).toBeVisible();

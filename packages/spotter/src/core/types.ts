@@ -389,6 +389,8 @@ export interface SpotterWidgetApi {
   /** Remote config as applied (already narrowed), or null before it's fetched. */
   remoteConfig(): RemoteConfig | null;
   reporterMode(): ReporterMode;
+  /** Who `identify()` named, or null — the widget skips the Contact step when known. */
+  identity(): { id: string; email?: string; name?: string } | null;
   /** Team mode: sign in with Console in a popup. Resolves with the new mode, or null if cancelled. */
   connectTeam(): Promise<ReporterMode | null>;
   disconnectTeam(): void;

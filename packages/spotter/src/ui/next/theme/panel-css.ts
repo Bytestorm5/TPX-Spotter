@@ -16,6 +16,7 @@ export const PANEL_CSS = `
 .sp-root :where(a){color:inherit}
 .sp-root :focus{outline:none}
 .sp-root :focus-visible{outline:2px solid var(--sp-ring);outline-offset:2px}
+.sp-root [hidden]{display:none!important}
 .sp-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 /* backdrop + dialog */

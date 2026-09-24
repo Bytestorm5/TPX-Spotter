@@ -27,7 +27,11 @@ test.describe("team mode and the closed loop", () => {
     // Signed in as a teammate (the token Console's connect popup would store).
     await page.addInitScript(() => sessionStorage.setItem("spotter:team", JSON.stringify({ token: "tt_fixture", name: "Grace" })));
     await visit(page, "/checkout");
-    await page.evaluate(() => console.error("Stripe.js failed to load"));
+    // Capture installs at idle; log once it's listening, like an error some time into a session.
+    await page.evaluate(async () => {
+      await (window as any).__trusplexSpotter?.ready?.();
+      console.error("Stripe.js failed to load");
+    });
     await trigger(page).click();
     const d = dialog(page);
     await expect(d.getByText("Team", { exact: true })).toBeVisible();
