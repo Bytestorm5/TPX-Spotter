@@ -1,0 +1,6 @@
+.next/
+test-results/
+playwright-report/
+.spotter-test/
+next-env.d.ts
+*.tsbuildinfo

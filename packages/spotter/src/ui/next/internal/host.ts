@@ -39,7 +39,8 @@ export function getUiRoot(options: { unstyled?: boolean; nonce?: string } = {}):
     container.className = "sp-root";
     shadow.appendChild(container);
   }
-  setUiRoot({ host, shadow, container });
+  const root = { host, shadow, container };
+  setUiRoot(root);
   sheets.clear();
   if (shadow) setCss("reset", HOST_RESET, options.nonce);
   return root;

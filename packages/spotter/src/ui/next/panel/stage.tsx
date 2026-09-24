@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import { canRedo, canUndo, COLORS, redo, undo, type History, type Tool } from "../annotate/model.ts";
 import { ArrowIcon, BlurIcon, PenIcon, PinIcon, RectIcon, RedoIcon, TextIcon, UndoIcon } from "../internal/icons.tsx";
 import type { MessageKey } from "../locales/index.ts";
-import { AnnotationCanvas } from "../primitives/annotation-canvas.tsx";
+import { AnnotationCanvas } from "../primitives/annotation.tsx";
 import type { LoadedImage } from "../primitives/screenshot.tsx";
 import { usePanel } from "./context.ts";
 
@@ -125,6 +125,7 @@ export function Stage(props: StageProps) {
               keyboardHint={t("annotate.keyboardHint")}
               textLabel={t("annotate.textPrompt")}
               announce={(tool) => props.onAnnounce(t("annotate.added", { tool: t(TOOL_META.find((m) => m.tool === tool)!.label) }))}
+              fallback={<StaticShot image={image} alt={t("attach.screenshot")} />}
             />
           ) : (
             <StaticShot image={image} alt={t("attach.screenshot")} />

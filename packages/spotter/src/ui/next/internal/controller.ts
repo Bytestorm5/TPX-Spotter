@@ -10,8 +10,10 @@ import type { WidgetCapture } from "../../../core/types.ts";
 import type { OpenOptions, SpotterConfig } from "../../../core/types.ts";
 import { FEATURE_SCREENSHOT, FEATURE_WIDGET } from "../../../core/features.ts";
 import * as bridge from "./bridge.ts";
-import { peekUiRoot } from "./host.ts";
+import { peekUiRoot } from "./root-ref.ts";
 import { getSnapshot, update, type FlowMode } from "./store.ts";
+
+declare const __SPOTTER_WIDGET__: boolean | undefined;
 
 let config: SpotterConfig = {};
 let pendingCapture: Promise<WidgetCapture> | null = null;
@@ -36,13 +38,16 @@ export function ensureClient(): Promise<bridge.Client> {
 
 /** The panel chunk (React components + CSS). Imported by `<SpotterPanel>` through `React.lazy` too. */
 export function loadPanelChunk(): Promise<unknown> {
-  if (!panelChunk) {
+  if (panelChunk) return panelChunk;
+  // The guard is inline (not just FEATURE_WIDGET) so bundlers drop the import() — and the whole chunk — when the widget is compiled out.
+  if ((typeof __SPOTTER_WIDGET__ === "boolean" ? __SPOTTER_WIDGET__ : true) && FEATURE_WIDGET) {
     panelChunk = import("../panel/index.tsx");
     panelChunk.catch(() => {
       panelChunk = null;
     });
+    return panelChunk;
   }
-  return panelChunk;
+  return Promise.reject(new Error("Spotter: the widget is not compiled into this build."));
 }
 
 /** Warm everything the first report needs (trigger hover / focus). */

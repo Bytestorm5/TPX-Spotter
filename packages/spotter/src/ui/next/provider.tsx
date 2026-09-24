@@ -16,12 +16,11 @@
  * (see `internal/route-pattern.ts`).
  */
 import { createContext, Suspense, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { useParams, usePathname, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useSearchParams } from "next/navigation.js";
 import type { SpotterConfig } from "../../core/types.ts";
 import * as bridge from "./internal/bridge.ts";
 import { closeFlow, ensureClient, setConfig, startFlow } from "./internal/controller.ts";
-import { whenIdle } from "./internal/host.ts";
-import { deriveRoutePattern, matchRoutePattern } from "./internal/route-pattern.ts";
+import { whenIdle } from "./internal/idle.ts";
 import { update } from "./internal/store.ts";
 
 export interface SpotterProviderProps extends Omit<SpotterConfig, "secretKey" | "transport"> {
@@ -61,16 +60,19 @@ function publicEnv() {
   };
 }
 
-let routeManifest: string[] | null = null;
+type RouteModule = typeof import("./internal/route-pattern.ts");
+let routes: RouteModule | null = null;
+let manifestCache: string[] | null = null;
+
 function manifest(): string[] {
-  if (routeManifest) return routeManifest;
+  if (manifestCache) return manifestCache;
   try {
     const raw = publicEnv().routes;
-    routeManifest = raw ? (JSON.parse(raw) as string[]) : [];
+    manifestCache = raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
-    routeManifest = [];
+    manifestCache = [];
   }
-  return routeManifest;
+  return manifestCache;
 }
 
 /** Patterns learnt from `useParams()` for URLs the manifest doesn't cover. */
@@ -83,7 +85,7 @@ function resolveRoute(url: string): string | undefined {
   } catch {
     /* already a path */
   }
-  return matchRoutePattern(path, manifest()) ?? learnt.get(path);
+  return routes?.matchRoutePattern(path, manifest()) ?? learnt.get(path);
 }
 
 export function SpotterProvider({ children, nonce, ...props }: SpotterProviderProps) {
@@ -104,9 +106,10 @@ export function SpotterProvider({ children, nonce, ...props }: SpotterProviderPr
     let off: (() => void) | undefined;
     let cancelled = false;
     const boot = () =>
-      ensureClient()
-        .then((c) => {
+      Promise.all([ensureClient(), import("./internal/route-pattern.ts")])
+        .then(([c, r]) => {
           if (cancelled) return;
+          routes = r;
           bridge.setRouteResolver(resolveRoute);
           off = bridge.onOpenClose(
             c,
@@ -150,14 +153,14 @@ function RouteTracker() {
   const last = useRef<string | null>(null);
   const query = search?.toString() ?? "";
   useEffect(() => {
-    if (!pathname) return;
-    const pattern = matchRoutePattern(pathname, manifest()) ?? deriveRoutePattern(pathname, params);
+    const c = bridge.peekClient();
+    // Before core is up there's nothing to tell: its first pageview comes from init, through the resolver.
+    if (!pathname || !routes || !c?.initialized) return;
+    const pattern = routes.matchRoutePattern(pathname, manifest()) ?? routes.deriveRoutePattern(pathname, params);
     if (pattern !== pathname) learnt.set(pathname, pattern);
     const key = pathname + "?" + query;
     if (last.current === key) return;
     last.current = key;
-    const c = bridge.peekClient();
-    if (!c?.initialized) return; // The initial pageview is recorded by core on init, with the resolver above.
     try {
       c.pageview(location.href, pattern);
     } catch {

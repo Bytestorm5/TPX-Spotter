@@ -47,7 +47,7 @@ export interface SpotterRouteHandlers {
  */
 async function nextAfter(): Promise<((p: Promise<unknown>) => void) | undefined> {
   try {
-    const mod = (await import("next/server")) as { after?: (task: Promise<unknown>) => void };
+    const mod = (await import("next/server.js")) as { after?: (task: Promise<unknown>) => void };
     return mod.after;
   } catch {
     return undefined;

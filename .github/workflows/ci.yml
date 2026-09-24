@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, test, build, budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Bundle budgets (loader < 6 KB, core < 15 KB gzip)
+        run: pnpm check:size
+      - name: Disabled features are compiled out
+        run: pnpm check:features
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spotter-dist
+          path: packages/spotter/dist
+          retention-days: 7
+
+  e2e:
+    name: Playwright (fixtures/next-app)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Install Chromium
+        working-directory: fixtures/next-app
+        run: npx playwright install --with-deps chromium
+      - run: pnpm --filter spotter-fixture-next test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: fixtures/next-app/playwright-report
+          retention-days: 7

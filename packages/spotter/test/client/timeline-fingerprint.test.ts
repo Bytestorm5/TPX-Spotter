@@ -82,3 +82,11 @@ describe("fingerprint", () => {
     expect(deriveFingerprint({ source: "widget", error: err, page: { url: "/" }, category: "bug" })).toBe(pageFingerprint({ url: "/", category: "bug" }));
   });
 });
+
+describe("sdk version", () => {
+  it("matches package.json", async () => {
+    const { SDK_VERSION } = await import("../../src/core/ids.ts");
+    const pkg = JSON.parse(await import("node:fs").then((fs) => fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8")));
+    expect(SDK_VERSION).toBe(pkg.version);
+  });
+});

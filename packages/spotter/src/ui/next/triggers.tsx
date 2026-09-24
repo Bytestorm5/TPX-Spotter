@@ -25,7 +25,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation.js";
 import { FEATURE_WIDGET } from "../../core/features.ts";
 import type { OpenOptions } from "../../core/types.ts";
 import * as bridge from "./internal/bridge.ts";
@@ -36,6 +36,8 @@ import { getServerSnapshot, getSnapshot, subscribe } from "./internal/store.ts";
 import { TriggerIcon } from "./internal/trigger-icon.tsx";
 import { useSpotterContext } from "./provider.tsx";
 import type { TriggerRuntime } from "./theme/trigger-runtime.ts";
+
+declare const __SPOTTER_WIDGET__: boolean | undefined;
 
 export type ElementTarget = string | Element | null | (() => Element | null);
 
@@ -111,11 +113,13 @@ export function useTriggerRuntime(): { rt: TriggerRuntime | null; root: UiRoot |
   useEffect(() => {
     let alive = true;
     const cancel = whenIdle(() => {
-      void import("./theme/trigger-runtime.ts")
-        .then((m) => m.ensureRuntime({ appearance: config.appearance, locale: config.locale, localization: config.localization, nonce }))
-        .then((rt) => {
-          if (alive) setState({ rt, root: peekUiRoot() });
-        });
+      if ((typeof __SPOTTER_WIDGET__ === "boolean" ? __SPOTTER_WIDGET__ : true) && FEATURE_WIDGET) {
+        void import("./theme/trigger-runtime.ts")
+          .then((m) => m.ensureRuntime({ appearance: config.appearance, locale: config.locale, localization: config.localization, nonce }))
+          .then((rt) => {
+            if (alive) setState({ rt, root: peekUiRoot() });
+          });
+      }
     });
     return () => {
       alive = false;
@@ -220,9 +224,11 @@ export function useGlobalTriggers(): void {
     let dispose: (() => void) | undefined;
     let alive = true;
     const cancel = whenIdle(() => {
-      void import("./internal/global-triggers.ts").then((m) => {
-        if (alive) dispose = m.installGlobalTriggers({ trigger, remote, warm, open: (opener, el) => openFrom(opener, {}, el) });
-      });
+      if ((typeof __SPOTTER_WIDGET__ === "boolean" ? __SPOTTER_WIDGET__ : true) && FEATURE_WIDGET) {
+        void import("./internal/global-triggers.ts").then((m) => {
+          if (alive) dispose = m.installGlobalTriggers({ trigger, remote, warm, open: (opener, el) => openFrom(opener, {}, el) });
+        });
+      }
     });
     return () => {
       alive = false;

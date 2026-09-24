@@ -29,9 +29,13 @@ export interface StatusWidgetProps extends Required<SpotterStatusProps> {
   nonce?: string;
 }
 
-const LazyStatus = lazy(() =>
-  import("./panel/status-widget.tsx").then((m) => ({ default: m.StatusWidget as ComponentType<StatusWidgetProps> })),
-);
+declare const __SPOTTER_WIDGET__: boolean | undefined;
+
+/** Inline guard so an unused widget build drops the chunk entirely (see `features.ts`). */
+const LazyStatus =
+  (typeof __SPOTTER_WIDGET__ === "boolean" ? __SPOTTER_WIDGET__ : true) && FEATURE_WIDGET
+    ? lazy(() => import("./panel/status-widget.tsx").then((m) => ({ default: m.StatusWidget as ComponentType<StatusWidgetProps> })))
+    : null;
 
 export function SpotterStatus({ pollSeconds = 60, limit = 5 }: SpotterStatusProps) {
   const { config, nonce } = useSpotterContext();
@@ -49,7 +53,7 @@ export function SpotterStatus({ pollSeconds = 60, limit = 5 }: SpotterStatusProp
     }
     setMount({ shadow, container });
   }, []);
-  if (!FEATURE_WIDGET) return null;
+  if (!LazyStatus) return null;
   return (
     // No style attribute here: it would be server-rendered, and strict CSPs block inline style attributes.
     <span ref={hostRef} data-spotter-ui="" data-spotter-part="statusHost">

@@ -15,7 +15,6 @@ import { FEATURE_ANNOTATE, FEATURE_RECORDING, FEATURE_SCREENSHOT } from "../../.
 import { CATEGORIES, SEVERITIES, type Category, type FieldValue, type Severity, type SimilarIssue } from "../../../core/schema.ts";
 import type { AttachmentSummary, WidgetCapture } from "../../../core/types.ts";
 import { commit, createHistory, DEFAULT_COLOR, exportShapes, type History, type Shape, type Tool } from "../annotate/model.ts";
-import { flattenToPng } from "../annotate/render.ts";
 import * as bridge from "../internal/bridge.ts";
 import * as flow from "../internal/bridge-flow.ts";
 import { closeFlow, takeCapture } from "../internal/controller.ts";
@@ -34,6 +33,7 @@ import {
 } from "../internal/icons.tsx";
 import { update, type UiSnapshot } from "../internal/store.ts";
 import type { MessageKey } from "../locales/index.ts";
+import { loadRenderer } from "../primitives/annotation.tsx";
 import { Panel as Dialog } from "../primitives/dialog.tsx";
 import { Field } from "../primitives/field.tsx";
 import { LiveRegion, Submit } from "../primitives/misc.tsx";
@@ -238,7 +238,7 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
     const first = Object.keys(next)[0];
     if (first) {
       setAlert(t("validation.required"));
-      const target = first === "description" ? descRef.current : peekUiRoot()?.container.querySelector<HTMLElement>(`[data-field="${first}"] :is(input,textarea,select,button)`);
+      const target = first === "description" ? descRef.current : peekUiRoot()?.container.querySelector<HTMLElement>(`[data-field="${first}"] :is(select,textarea,input,button)`);
       target?.focus();
       if (first === "description" && step === "annotate") setStep("describe");
       return false;
@@ -278,7 +278,8 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
     setAnnounce(t("submit.sending"));
     try {
       const shapes = history.present;
-      const annotated = hasShot && shapes.length > 0 && include.screenshot !== false ? await flattenToPng(image!.source, shapes, image!) : undefined;
+      const renderer = hasShot && shapes.length > 0 && include.screenshot !== false ? loadRenderer() : null;
+      const annotated = renderer ? await (await renderer).flattenToPng(image!.source, shapes, image!) : undefined;
       const fileList = Object.values(files).flat();
       const receipt = await flow.submit({
         captureId: capture?.id,
@@ -860,7 +861,9 @@ function Thumb({ image, history }: { image: LoadedImage; history: History }) {
     c.height = image.height;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    void import("../annotate/render.ts").then((m) => {
+    const renderer = history.present.length > 0 ? loadRenderer() : null;
+    if (!renderer) return setFlat(null);
+    void renderer.then((m) => {
       m.renderAnnotated(ctx, image.source, history.present, image, false);
       setFlat(c);
     });

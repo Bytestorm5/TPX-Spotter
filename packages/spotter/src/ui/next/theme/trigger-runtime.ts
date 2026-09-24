@@ -3,7 +3,9 @@
  * resolved theme, trigger CSS and the localized label. Loaded after idle as
  * its own chunk, so none of it is in the initial bundle.
  */
-import type { Appearance } from "../../../core/schema.ts";
+import type { Appearance, TargetingRule } from "../../../core/schema.ts";
+import { formatShortcut, parseShortcut } from "../internal/shortcut.ts";
+import { evaluateTargeting, type TargetingContext } from "../internal/targeting.ts";
 import { getUiRoot, hasCss, setCss } from "../internal/host.ts";
 import { createTranslator, detectLocale, isRtl, loadMessages, type Translate } from "../locales/index.ts";
 import { themeStylesheet, watchScheme } from "./runtime.ts";
@@ -14,8 +16,14 @@ export interface TriggerRuntime {
   locale: string;
   dir: "ltr" | "rtl";
   t: Translate;
+  /** All rules must pass (code config narrows remote and vice versa). */
+  visible(rules: (TargetingRule | undefined)[], ctx: TargetingContext): boolean;
+  /** Parsed shortcut for `aria-keyshortcuts` and the tooltip, or undefined when off / malformed. */
+  shortcut(spec: string | null | undefined): { aria: string; label: string } | undefined;
   dispose(): void;
 }
+
+const APPLE = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
 
 /** Install (or refresh) the theme sheet; call again when appearance changes. */
 export function installTheme(appearance: Appearance | undefined, nonce: string | undefined): "light" | "dark" {
@@ -68,6 +76,13 @@ async function loadTriggerRuntime(opts: RuntimeOptions): Promise<TriggerRuntime>
     locale,
     dir,
     t: createTranslator(messages, opts.localization),
+    visible: (rules, ctx) => rules.every((r) => evaluateTargeting(r, ctx)),
+    shortcut: (spec) => {
+      const s = parseShortcut(spec, APPLE());
+      if (!s) return undefined;
+      const aria = formatShortcut(s);
+      return { aria, label: APPLE() ? aria.replace("Meta", "⌘").replace("Alt", "⌥").replace("Shift", "⇧").replace("Control", "⌃").split("+").join("") : aria.split("+").join(" + ") };
+    },
     dispose: stop,
   };
 }

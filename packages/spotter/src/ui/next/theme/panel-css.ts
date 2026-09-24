@@ -10,7 +10,7 @@ export const PANEL_CSS = `
 .sp-root{--u:calc(var(--sp-unit,1rem)/4);font-family:var(--sp-font);color:var(--sp-text);font-size:14px;line-height:1.45;
 -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-align:start}
 .sp-root *,.sp-root *::before,.sp-root *::after{box-sizing:border-box}
-.sp-root :where(button,input,textarea,select){font:inherit;color:inherit;letter-spacing:inherit}
+.sp-root :where(button,select,textarea,input){font:inherit;color:inherit;letter-spacing:inherit}
 .sp-root :where(h2,h3,p,ul,ol,dl,dd,figure){margin:0;padding:0}
 .sp-root :where(ul,ol){list-style:none}
 .sp-root :where(a){color:inherit}
@@ -103,7 +103,7 @@ box-shadow:0 0 0 3px color-mix(in srgb,var(--sp-ring) 22%,transparent)}
 .sp-check{display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;line-height:1.4}
 .sp-check input{appearance:none;flex:none;width:18px;height:18px;margin:1px 0 0;border:1px solid var(--sp-border-strong);border-radius:5px;
 background:var(--sp-bg);display:grid;place-content:center;cursor:pointer;transition:background-color .12s,border-color .12s}
-.sp-check input::after{content:"";width:10px;height:6px;border:2px solid var(--sp-primary-text);border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px);opacity:0}
+.sp-check input::after{content:"";width:10px;height:6px;border:2px solid var(--sp-primary-text);border-top:0;border-right:0;transform:rotate(-45deg) translateX(1px) translateY(-1px);opacity:0}
 .sp-check input:checked{background:var(--sp-primary);border-color:var(--sp-primary)}
 .sp-check input:checked::after{opacity:1}
 .sp-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -259,7 +259,7 @@ border-radius:var(--sp-radius-panel) var(--sp-radius-panel) 0 0;border-bottom:0;
 @keyframes sp-fade{from{opacity:0}}
 @keyframes sp-rise{from{opacity:0;transform:translateY(8px) scale(.985)}}
 @keyframes sp-sheet{from{transform:translateY(100%)}}
-@keyframes sp-drop{from{opacity:0;transform:translate(-50%,-6px)}}
+@keyframes sp-drop{from{opacity:0;transform:translateX(-50%) translateY(-6px)}}
 @keyframes sp-pop{from{transform:scale(.6);opacity:0}}
 @keyframes sp-spin{to{transform:rotate(360deg)}}
 @keyframes sp-shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}

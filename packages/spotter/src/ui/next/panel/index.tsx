@@ -10,6 +10,7 @@ import type { SpotterConfig } from "../../../core/types.ts";
 import { beginCapture, closeFlow } from "../internal/controller.ts";
 import { hasCss, peekUiRoot, setCss } from "../internal/host.ts";
 import { getServerSnapshot, getSnapshot, subscribe } from "../internal/store.ts";
+import { loadCanvas } from "../primitives/annotation.tsx";
 import { PANEL_CSS } from "../theme/panel-css.ts";
 import { ensureRuntime, type TriggerRuntime } from "../theme/trigger-runtime.ts";
 import { makePart, PanelContext } from "./context.ts";
@@ -27,6 +28,8 @@ export function Panel({ config, nonce, teamSignIn }: PanelProps) {
   const unstyled = config.appearance?.mode === "unstyled";
   useEffect(() => {
     let alive = true;
+    // Warm the canvas chunk while the screenshot is being taken.
+    void loadCanvas()?.catch(() => {});
     void ensureRuntime({ appearance: config.appearance, locale: config.locale, localization: config.localization, nonce }).then((r) => {
       if (!unstyled && !hasCss("panel")) setCss("panel", PANEL_CSS, nonce);
       if (alive) setRt(r);

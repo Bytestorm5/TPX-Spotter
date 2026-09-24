@@ -31,7 +31,8 @@ let client: Client | null = null;
 /** Load core (once). Safe to call from event handlers and effects; never at import time. */
 export function loadClient(): Promise<Client> {
   if (!clientPromise) {
-    clientPromise = (import("../../../core/index.ts") as Promise<unknown>).then((m) => {
+    // `singleton.ts`, not the core index: the index also carries hooks, the ingest handler and transports.
+    clientPromise = (import("../../../core/singleton.ts") as Promise<unknown>).then((m) => {
       client = (m as CoreModule).spotter;
       trackIdentity(client);
       return client;

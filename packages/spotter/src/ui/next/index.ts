@@ -25,25 +25,11 @@ export { useSpotter, type UseSpotter } from "./use-spotter.ts";
 
 export { Panel, type PanelProps } from "./primitives/dialog.tsx";
 export { Screenshot, loadImage, type ScreenshotProps, type LoadedImage } from "./primitives/screenshot.tsx";
-export { AnnotationCanvas, type AnnotationCanvasProps } from "./primitives/annotation-canvas.tsx";
+export { AnnotationCanvas, loadAnnotationTools, type AnnotationCanvasProps } from "./primitives/annotation.tsx";
 export { Field, type FieldProps, type FieldLabels } from "./primitives/field.tsx";
 export { Submit, Status, LiveRegion, type SubmitProps, type StatusProps } from "./primitives/misc.tsx";
 
-export {
-  createHistory,
-  commit,
-  undo,
-  redo,
-  canUndo,
-  canRedo,
-  exportShapes,
-  TOOLS,
-  COLORS,
-  type History,
-  type Shape,
-  type Tool,
-} from "./annotate/model.ts";
-export { flattenToPng } from "./annotate/render.ts";
+export type { History, Shape, Tool } from "./annotate/model.ts";
 export { isFieldVisible, validateField, validateFields } from "./internal/fields.ts";
 export { evaluateTargeting } from "./internal/targeting.ts";
 export { parseShortcut, formatShortcut } from "./internal/shortcut.ts";
