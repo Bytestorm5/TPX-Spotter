@@ -43,7 +43,7 @@
  * - `remoteConfig()` — applied (narrowed) remote config for fields,
  *   appearance and trigger targeting.
  */
-import { applyRemoteConfig, CONSOLE_ORIGIN, detectRuntime, resolveConfig, type ResolvedConfig } from "./config.ts";
+import { CONSOLE_ORIGIN, detectRuntime, resolveConfig, type ResolvedConfig } from "./config.ts";
 import { devCheckConfig, devWarn } from "./dev.ts";
 import type { Engine, EngineHost, Scope } from "./engine.ts";
 import { COMPILED_FEATURES, DEV, type FeatureName } from "./features.ts";
@@ -66,6 +66,10 @@ import type {
 } from "./types.ts";
 
 export type SpotterInstance = SpotterClient & SpotterWidgetApi;
+
+// Read inline at each `if`: a bundler define then folds dev-only branches (and their
+// strings) while this file is parsed; the imported DEV is only known after linking.
+declare const __SPOTTER_DEV__: boolean | undefined;
 
 const GUEST_PARAM = "spotter_guest";
 const GUEST_KEY = "spotter:guest";
@@ -128,7 +132,7 @@ export function createSpotter(): SpotterInstance {
       try {
         (fn as (p: SpotterEvents[E]) => void)(payload);
       } catch (error) {
-        if (DEV) devWarn(`a "${event}" listener threw: ${(error as Error)?.message ?? error}`);
+        if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn(`a "${event}" listener threw: ${(error as Error)?.message ?? error}`);
       }
     }
   }
@@ -154,14 +158,13 @@ export function createSpotter(): SpotterInstance {
       const out = { errors: early.errors.splice(0), crumbs: early.crumbs.splice(0) };
       return out;
     },
-    applyRemote(r) {
-      const applied = applyRemoteConfig(cfg(), r);
-      config = applied.config;
+    setRemote(c, r) {
+      config = c;
       remote = r;
-      if (DEV) for (const i of applied.ignored) devWarn(`remote config asked for ${i}, which this build or your code config doesn't allow; ignored.`);
       emit("config", r);
-      return config;
     },
+    baseConfig: () => resolveConfig(userConfig),
+    remote: () => remote,
   };
 
   function loadEngine(): Promise<Engine> {
@@ -195,10 +198,7 @@ export function createSpotter(): SpotterInstance {
     const gen = generation;
     idle(() => {
       if (gen !== generation) return;
-      void loadEngine().then((e) => {
-        void e.fetchRemote();
-        void e.drain();
-      });
+      void loadEngine().then((e) => e.engage());
     });
   }
 
@@ -212,7 +212,7 @@ export function createSpotter(): SpotterInstance {
 
   function off(f: FeatureName, api: string): boolean {
     if (featureOn(f)) return false;
-    if (DEV) devWarn(`${api} was called but the "${f}" feature is ${COMPILED_FEATURES[f] ? "disabled at runtime" : "not compiled into this build"}; it does nothing.`);
+    if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn(`spotter.${api}() was called but the "${f}" feature is ${COMPILED_FEATURES[f] ? "disabled at runtime" : "not compiled into this build"}; it does nothing.`);
     return true;
   }
 
@@ -223,7 +223,7 @@ export function createSpotter(): SpotterInstance {
       config = resolveConfig(userConfig);
       return true;
     }
-    if (DEV) devWarn(`${api} was called before spotter.init(); it was ignored.`);
+    if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn(`spotter.${api}() was called before spotter.init(); it was ignored.`);
     return false;
   }
 
@@ -288,7 +288,7 @@ export function createSpotter(): SpotterInstance {
       report: (input) => client.report({ ...input, request }),
       captureException: (error, context) => client.captureException(error, { ...context, request }),
       flag(name, options) {
-        if (!ensureInit("flag()") || off("flags", "spotter.flag()")) return;
+        if (!ensureInit("flag") || off("flags", "flag")) return;
         later((e) => e.flag(name, options, request));
       },
     };
@@ -300,14 +300,14 @@ export function createSpotter(): SpotterInstance {
         // A second init (e.g. a provider re-render) updates config in place; listeners stay installed.
         userConfig = { ...userConfig, ...c };
         config = resolveConfig(userConfig);
-        if (remote) config = applyRemoteConfig(config, remote).config;
-        engine?.reconfigure();
+        engine?.reconfigure(); // re-narrows with the last remote config
+
         return client;
       }
       initialized = true;
       userConfig = { ...c };
       config = resolveConfig(userConfig);
-      if (DEV) devCheckConfig(config, config.runtime);
+      if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devCheckConfig(config, config.runtime);
       if (config.runtime === "browser") installBrowser(config);
       return client;
     },
@@ -348,13 +348,13 @@ export function createSpotter(): SpotterInstance {
         isBin || data instanceof Uint8Array || typeof data === "string" ? (data as Blob | Uint8Array | string) : JSON.stringify(data);
       const bytes = typeof payload === "string" ? new TextEncoder().encode(payload).byteLength : payload instanceof Uint8Array ? payload.byteLength : payload.size;
       if (bytes > 10 * 1024 * 1024) {
-        if (DEV) devWarn(`attach("${name}") is over 10 MB and was ignored.`);
+        if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn(`attach("${name}") is over 10 MB and was ignored.`);
         return;
       }
       const type = contentType ?? (isBin ? (payload as Blob).type : "") ?? "";
       scope.attachments = scope.attachments.filter((a) => a.name !== name);
       if (scope.attachments.length >= 10) {
-        if (DEV) devWarn("at most 10 attachments are kept; the oldest was dropped.");
+        if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn("at most 10 attachments are kept; the oldest was dropped.");
         scope.attachments.shift();
       }
       scope.attachments.push({
@@ -374,48 +374,48 @@ export function createSpotter(): SpotterInstance {
     },
 
     flag(name, options?: FlagOptions) {
-      if (!ensureInit("flag()") || off("flags", "spotter.flag()")) return;
+      if (!ensureInit("flag") || off("flags", "flag")) return;
       later((e) => e.flag(name, options));
     },
     assert(condition, name, data) {
       if (!condition) client.flag(name, { severity: "error", ...(data ? { data } : {}) });
     },
     async report(input: ReportInput) {
-      if (!ensureInit("report()")) throw new Error("Spotter: call spotter.init() before report().");
+      if (!ensureInit("report")) throw new Error("Spotter: call spotter.init() before report().");
       return withEngine((e) => e.report(input));
     },
     async captureException(error, context?: ExceptionContext) {
-      if (!ensureInit("captureException()")) return null;
+      if (!ensureInit("captureException")) return null;
       return withEngine((e) => e.captureException(error, context));
     },
     async status(id) {
-      if (!ensureInit("status()")) return null;
+      if (!ensureInit("status")) return null;
       return withEngine((e) => e.status(id));
     },
     async reply(id, body) {
-      if (!ensureInit("reply()")) return null;
+      if (!ensureInit("reply")) return null;
       return withEngine((e) => e.reply(id, body));
     },
     async similar(page) {
-      if (!ensureInit("similar()")) return [];
+      if (!ensureInit("similar")) return [];
       return withEngine((e) => e.similar(page));
     },
     async plusOne(id) {
-      if (!ensureInit("plusOne()")) return null;
+      if (!ensureInit("plusOne")) return null;
       return withEngine((e) => e.plusOne(id));
     },
 
     track(name, props, revenue) {
-      if (!ensureInit("track()") || off("analytics", "spotter.track()")) return;
+      if (!ensureInit("track") || off("analytics", "track")) return;
       later((e) => e.track(name, props, revenue));
     },
     pageview(url, routePattern) {
-      if (!ensureInit("pageview()") || off("analytics", "spotter.pageview()")) return;
+      if (!ensureInit("pageview") || off("analytics", "pageview")) return;
       later((e) => e.pageview(url, routePattern));
     },
 
     open(options = {}) {
-      if (off("widget", "spotter.open()")) return;
+      if (off("widget", "open")) return;
       onFirstInteraction();
       emit("open", options);
     },
@@ -475,6 +475,7 @@ export function createSpotter(): SpotterInstance {
     discardCapture(id) {
       engine?.discardCapture(id);
     },
+    devDetails: (captureId) => engine?.devDetails(captureId) ?? null,
     setState,
     remoteConfig: () => remote,
     reporterMode() {
@@ -521,7 +522,7 @@ export function createSpotter(): SpotterInstance {
       scope.routeResolver = fn;
     },
     async startRecording(options) {
-      if (off("recording", "spotter.startRecording()")) throw new Error("Spotter: screen recording is not enabled.");
+      if (off("recording", "startRecording")) throw new Error("Spotter: screen recording is not enabled.");
       return withEngine((e) => e.startRecording(options));
     },
     async flush() {

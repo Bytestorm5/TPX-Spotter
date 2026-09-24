@@ -43,8 +43,7 @@ describe("init", () => {
     await tick(20);
     expect(config).not.toHaveBeenCalled();
     window.dispatchEvent(new Event("pointerdown"));
-    await tick(20);
-    expect(config).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(config).toHaveBeenCalledTimes(1));
   });
 
   it("exposes and removes the global handle", async () => {

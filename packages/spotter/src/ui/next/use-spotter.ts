@@ -12,6 +12,7 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { ReportReceipt, ReporterType } from "../../core/schema.ts";
 import type { OpenOptions, SpotterState } from "../../core/types.ts";
 import * as bridge from "./internal/bridge.ts";
+import * as flow from "./internal/bridge-flow.ts";
 import { closeFlow, ensureClient, startFlow, warm } from "./internal/controller.ts";
 import { getServerSnapshot, getSnapshot, subscribe, update, type FlowMode } from "./internal/store.ts";
 
@@ -46,7 +47,7 @@ export function useSpotter(): UseSpotter {
     update({ state: "submitting", error: null });
     bridge.setState("submitting");
     try {
-      const receipt = await bridge.submit({
+      const receipt = await flow.submit({
         mode: "text",
         description: input.description,
         title: input.title,
@@ -69,7 +70,7 @@ export function useSpotter(): UseSpotter {
     bridge.setState("idle");
   }, []);
   const connectTeam = useCallback(async () => {
-    const mode = await bridge.connectTeam();
+    const mode = await flow.connectTeam();
     if (mode) update({ reporter: mode.type, reporterName: mode.name });
     return mode?.type ?? null;
   }, []);

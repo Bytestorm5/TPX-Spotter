@@ -4,7 +4,7 @@
  * its own chunk, so none of it is in the initial bundle.
  */
 import type { Appearance } from "../../../core/schema.ts";
-import { hasCss, setCss } from "../internal/host.ts";
+import { getUiRoot, hasCss, setCss } from "../internal/host.ts";
 import { createTranslator, detectLocale, isRtl, loadMessages, type Translate } from "../locales/index.ts";
 import { themeStylesheet, watchScheme } from "./runtime.ts";
 import { TRIGGER_CSS } from "./trigger-css.ts";
@@ -24,14 +24,27 @@ export function installTheme(appearance: Appearance | undefined, nonce: string |
   return theme.scheme;
 }
 
-export async function loadTriggerRuntime(opts: {
+export interface RuntimeOptions {
   appearance?: Appearance;
   locale?: string;
   localization?: Record<string, string>;
   nonce?: string;
-  onScheme?: (scheme: "light" | "dark") => void;
-}): Promise<TriggerRuntime> {
+}
+
+let shared: Promise<TriggerRuntime> | null = null;
+
+/**
+ * The page-wide runtime, created once (trigger and panel share it). Also
+ * creates the UI root and stamps `dir`, `lang` and `data-scheme` on it.
+ */
+export function ensureRuntime(opts: RuntimeOptions): Promise<TriggerRuntime> {
+  shared ??= loadTriggerRuntime(opts);
+  return shared;
+}
+
+async function loadTriggerRuntime(opts: RuntimeOptions): Promise<TriggerRuntime> {
   const unstyled = opts.appearance?.mode === "unstyled";
+  const root = getUiRoot({ unstyled, nonce: opts.nonce });
   let scheme: "light" | "dark" = "light";
   let stop = () => {};
   if (!unstyled) {
@@ -40,16 +53,20 @@ export async function loadTriggerRuntime(opts: {
     if ((opts.appearance?.theme ?? "auto") === "auto") {
       stop = watchScheme(() => {
         const next = installTheme(opts.appearance, opts.nonce);
-        opts.onScheme?.(next);
+        root.container.setAttribute("data-scheme", next);
       });
     }
   }
   const locale = detectLocale(opts.locale);
   const messages = await loadMessages(locale);
+  const dir = isRtl(locale) ? "rtl" : "ltr";
+  root.container.setAttribute("dir", dir);
+  root.container.setAttribute("lang", locale);
+  root.container.setAttribute("data-scheme", scheme);
   return {
     scheme,
     locale,
-    dir: isRtl(locale) ? "rtl" : "ltr",
+    dir,
     t: createTranslator(messages, opts.localization),
     dispose: stop,
   };

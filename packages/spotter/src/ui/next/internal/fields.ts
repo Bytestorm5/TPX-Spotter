@@ -54,7 +54,8 @@ function isEmpty(v: FieldValue | undefined): boolean {
 export function validateField(field: CustomFieldDeclaration, value: FieldValue | undefined): FieldIssue | null {
   const msg = field.validation?.message;
   const fail = (code: FieldError): FieldIssue => (msg ? { code, message: msg } : { code });
-  if (isEmpty(value)) return field.required ? fail("required") : null;
+  // A rating of 0 is "not rated yet".
+  if (isEmpty(value) || (field.type === "rating" && value === 0)) return field.required ? fail("required") : null;
   const v = field.validation;
   switch (field.type) {
     case "text":

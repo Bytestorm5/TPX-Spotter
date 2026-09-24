@@ -11,13 +11,6 @@ const S = (d: ReactElement | ReactElement[]) => (
   </svg>
 );
 
-/** The trigger: a speech bubble with an exclamation mark — "something to say", unbranded. */
-export const TriggerIcon = () =>
-  S([
-    <path key="a" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6a.5.5 0 0 1-.8-.4V16h0A1.5 1.5 0 0 1 4 14.5z" />,
-    <path key="b" d="M12 6.8v4.2" />,
-    <path key="c" d="M12 13.4h.01" strokeWidth={2.2} />,
-  ]);
 export const CloseIcon = () => S(<path d="M6 6l12 12M18 6L6 18" />);
 export const BackIcon = () => S(<path d="M15 18l-6-6 6-6" />);
 export const CheckIcon = () => S(<path d="M5 12.5l4.5 4.5L19 7.5" strokeWidth={2.25} />);

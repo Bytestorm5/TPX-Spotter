@@ -3,14 +3,11 @@
  * transport, hooks and the ingest handler. Runs in the browser, Node and
  * edge runtimes; nothing here does work at import time.
  */
-import { createSpotter } from "./client.ts";
-import type { TypedSpotter } from "./typed.ts";
-
 /**
  * The client singleton. Import it anywhere — client components, server
  * components, route handlers, server actions, middleware.
  */
-export const spotter: TypedSpotter = /* @__PURE__ */ createSpotter() as unknown as TypedSpotter;
+export { spotter } from "./singleton.ts";
 
 export { createSpotter } from "./client.ts";
 export type { SpotterInstance } from "./client.ts";
@@ -51,8 +48,10 @@ export {
 export { COMPILED_FEATURES, FEATURE_DEFINES } from "./features.ts";
 export type { FeatureName } from "./features.ts";
 export { SDK_VERSION } from "./ids.ts";
-export { HOSTED_ENDPOINT, CONSOLE_ORIGIN, DEFAULT_BROWSER_ENDPOINT, applyRemoteConfig, resolveConfig, matchRoute, targetingMatches } from "./config.ts";
-export type { ResolvedConfig, TargetingContext } from "./config.ts";
+export { HOSTED_ENDPOINT, CONSOLE_ORIGIN, DEFAULT_BROWSER_ENDPOINT, resolveConfig } from "./config.ts";
+export type { ResolvedConfig } from "./config.ts";
+export { applyRemoteConfig, matchRoute, targetingMatches } from "./remote-config.ts";
+export type { TargetingContext } from "./remote-config.ts";
 
 // consent
 export { connectConsentManager, gpcEnabled, dntEnabled } from "./consent.ts";

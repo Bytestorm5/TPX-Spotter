@@ -246,7 +246,8 @@ export interface ReporterMode {
 }
 
 export interface SpotterClient {
-  init(config: SpotterConfig): SpotterClient;
+  /** Returns the same client, so `const s = spotter.init({...})` keeps its full type. */
+  init(config: SpotterConfig): this;
   readonly initialized: boolean;
   readonly config: Readonly<SpotterConfig>;
   readonly state: SpotterState;
@@ -356,6 +357,13 @@ export interface StoredReport {
   lastStatus?: PublicStatus;
 }
 
+/** Team-mode "dev details" drawer: what the page recorded, without the full report. */
+export interface DevDetails {
+  consoleErrors: { message: string; at?: string }[];
+  failedRequests: { method: string; url: string; status: number }[];
+  environment: Record<string, string>;
+}
+
 export interface RecordingSession {
   /** Stop and get the recording. */
   stop(): Promise<{ blob: Blob; contentType: string; startedAt: string; endedAt: string }>;
@@ -374,6 +382,8 @@ export interface SpotterWidgetApi {
   captureForReport(options?: WidgetCaptureOptions): Promise<WidgetCapture>;
   submitFromWidget(draft: WidgetDraft): Promise<ReportReceipt>;
   discardCapture(id: string): void;
+  /** Team mode: console errors, failed requests and environment for a capture (or now). Null before the session chunk loads. */
+  devDetails(captureId?: string): DevDetails | null;
   /** UI state machine → `state` and `statusChange` events. */
   setState(state: SpotterState): void;
   /** Remote config as applied (already narrowed), or null before it's fetched. */

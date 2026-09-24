@@ -10,14 +10,10 @@
  * CSS at all, so Tailwind or the host's own classes reach every part.
  */
 
-export interface UiRoot {
-  host: HTMLElement;
-  shadow: ShadowRoot | null;
-  /** Where React portals render. */
-  container: HTMLElement;
-}
+import { peekUiRoot, setUiRoot, type UiRoot } from "./root-ref.ts";
 
-let root: UiRoot | null = null;
+export { peekUiRoot, type UiRoot };
+
 const sheets = new Map<string, CSSStyleSheet | HTMLStyleElement>();
 
 /**
@@ -28,7 +24,8 @@ const sheets = new Map<string, CSSStyleSheet | HTMLStyleElement>();
 const HOST_RESET = ":host{all:initial!important;display:contents!important}";
 
 export function getUiRoot(options: { unstyled?: boolean; nonce?: string } = {}): UiRoot {
-  if (root && root.host.isConnected) return root;
+  const existing = peekUiRoot();
+  if (existing) return existing;
   const host = document.createElement("div");
   host.setAttribute("data-spotter-ui", "");
   document.body.appendChild(host);
@@ -42,14 +39,10 @@ export function getUiRoot(options: { unstyled?: boolean; nonce?: string } = {}):
     container.className = "sp-root";
     shadow.appendChild(container);
   }
-  root = { host, shadow, container };
+  setUiRoot({ host, shadow, container });
   sheets.clear();
   if (shadow) setCss("reset", HOST_RESET, options.nonce);
   return root;
-}
-
-export function peekUiRoot(): UiRoot | null {
-  return root && root.host.isConnected ? root : null;
 }
 
 function supportsAdopted(shadow: ShadowRoot): boolean {
@@ -65,7 +58,7 @@ function supportsAdopted(shadow: ShadowRoot): boolean {
  * insertion is cascade order (reset → trigger → panel → theme).
  */
 export function setCss(id: string, css: string, nonce?: string): void {
-  const r = root;
+  const r = peekUiRoot();
   if (!r || !r.shadow) return;
   const existing = sheets.get(id);
   if (supportsAdopted(r.shadow)) {
@@ -93,23 +86,3 @@ export function hasCss(id: string): boolean {
   return sheets.has(id);
 }
 
-/** Run after the browser is idle (and never before load), falling back to a timeout. */
-export function whenIdle(fn: () => void, timeout = 2000): () => void {
-  if (typeof window === "undefined") return () => {};
-  let cancelled = false;
-  let handle: number | undefined;
-  const run = () => {
-    if (cancelled) return;
-    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    if (ric) handle = ric(() => !cancelled && fn(), { timeout });
-    else handle = window.setTimeout(() => !cancelled && fn(), 200);
-  };
-  if (document.readyState === "complete") run();
-  else window.addEventListener("load", run, { once: true });
-  return () => {
-    cancelled = true;
-    const cic = (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
-    if (handle !== undefined) (cic ?? clearTimeout)(handle);
-    window.removeEventListener("load", run);
-  };
-}

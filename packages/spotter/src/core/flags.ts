@@ -39,7 +39,8 @@ export interface FlaggerDeps {
 }
 
 export interface Flagger {
-  flag(name: string, options?: FlagOptions, extra?: { sessionId?: string; url?: string }): void;
+  /** `extra.at`: when flag() was called (it may be processed after the chunk loads). */
+  flag(name: string, options?: FlagOptions, extra?: { sessionId?: string; url?: string; at?: number }): void;
   flush(beacon?: boolean): Promise<void>;
   destroy(): void;
 }
@@ -77,7 +78,7 @@ export function createFlagger(deps: FlaggerDeps): Flagger {
       await deps.transport().flags(batch);
     } catch (error) {
       if (isRetryable(error)) await deps.queue.put({ kind: "flags", id: shortId("f_"), at: now(), attempts: 0, batch });
-      else deps.onError(error);
+      else deps.onError(new Error(`Spotter: the ingest rejected a batch of ${batch.flags.length} flag(s)`, { cause: error }));
     }
   }
 
@@ -86,7 +87,7 @@ export function createFlagger(deps: FlaggerDeps): Flagger {
       if (destroyed || !name) return;
       const fingerprint = options.fingerprint?.length ? options.fingerprint.map(String) : [name];
       const key = `${name}\u0000${fingerprint.join("\u0000")}`;
-      const t = now();
+      const t = extra.at ?? now();
       const times = (recent.get(key) ?? []).filter((x) => t - x < 60_000);
       if (times.length >= deps.limitPerMinute()) {
         recent.set(key, times);
