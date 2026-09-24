@@ -1,3 +1,5 @@
+import { SpotterTrigger } from "@trusplex/spotter/ui/next";
+
 export const metadata = { title: "Account — Acme Outfitters" };
 
 /** Privacy fixture: masked and blocked regions, and inputs whose values must never leave the page. */
@@ -6,6 +8,13 @@ export default function Account() {
     <>
       <h1>Your account</h1>
       <p className="lede">Private details stay private: Spotter masks and blocks these regions before anything is captured.</p>
+      <p style={{ marginTop: -16, marginBottom: 24 }}>
+        <SpotterTrigger asChild mode="recording">
+          <button type="button" className="btn secondary" data-testid="record">
+            Record a problem
+          </button>
+        </SpotterTrigger>
+      </p>
       <div className="sensitive">
         <div className="card masked" data-spotter-mask data-testid="masked">
           <h2>Payment method</h2>
@@ -15,7 +24,7 @@ export default function Account() {
           <h2>Recovery codes</h2>
           <p>7F3K-99QA · 1LMX-4Z0P · Q8RR-2NV6</p>
         </div>
-        <form className="form card" onSubmit={(e) => e.preventDefault()}>
+        <form className="form card" action="#">
           <label>
             Phone
             <input name="phone" defaultValue="+44 20 7946 0958" data-testid="phone" />

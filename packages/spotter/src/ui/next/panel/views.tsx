@@ -96,6 +96,8 @@ const REVIEW_LABELS: Partial<Record<AttachmentSummary["kind"] | "breadcrumbs" | 
   network: "review.item.network",
   environment: "review.item.environment",
   dom: "review.item.element",
+  storage: "review.item.storage",
+  errors: "review.item.errors",
   recording: "review.item.recording",
   annotated: "review.item.annotated",
 };
@@ -127,7 +129,7 @@ export function ReviewList(props: {
   for (const a of props.capture?.attachments ?? []) {
     if (a.kind === "screenshot") continue;
     const key = REVIEW_LABELS[a.kind];
-    const label = key ? t(key, { count: a.count ?? 0 }) : a.kind === "errors" ? `${t("team.consoleErrors")} (${a.count ?? 0})` : a.label;
+    const label = key ? t(key, { count: a.count ?? 0 }) : a.label;
     push({ kind: a.kind, label, icon: a.kind, removable: a.kind !== "environment" });
   }
   if (!props.capture?.attachments?.length) {
@@ -217,8 +219,12 @@ export function SimilarList({ items, busy, onContinue, onDone }: { items: Simila
               <li key={it.id}>
                 <span className="sp-list-text">
                   <span className="sp-list-title">{it.title}</span>
-                  <span className="sp-list-meta">
-                    {it.ref} · {t("similar.count", { count: done ? v : it.count })}
+                  <span className="sp-list-meta" aria-label={`${it.ref}, ${t("similar.count", { count: done ? v : it.count })}`}>
+                    {it.ref}
+                    <span className="sp-votes" aria-hidden="true">
+                      <ThumbIcon />
+                      {done ? v : it.count}
+                    </span>
                   </span>
                 </span>
                 <Status status={it.status} label={t(STATUS_KEYS[it.status])} />

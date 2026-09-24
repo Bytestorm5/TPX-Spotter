@@ -46,9 +46,10 @@
 import { CONSOLE_ORIGIN, detectRuntime, resolveConfig, type ResolvedConfig } from "./config.ts";
 import { devCheckConfig, devWarn } from "./dev.ts";
 import type { Engine, EngineHost, Scope } from "./engine.ts";
+import type { Session } from "./session.ts";
 import { COMPILED_FEATURES, DEV, type FeatureName } from "./features.ts";
 import { iso, tabSessionId } from "./ids.ts";
-import { storedReports } from "./receipts.ts";
+import { storedReports } from "./stored-reports.ts";
 import type { Breadcrumb, RemoteConfig } from "./schema.ts";
 import type {
   ConsentState,
@@ -279,8 +280,11 @@ export function createSpotter(): SpotterInstance {
     });
   }
 
-  function withEngine<T>(fn: (e: Engine) => Promise<T>): Promise<T> {
-    return loadEngine().then(fn);
+  /** Report / widget / closed-loop calls go straight to the session chunk (loading engine and session as needed). */
+  function withSession<T>(fn: (s: Session) => Promise<T>): Promise<T> {
+    return loadEngine()
+      .then((e) => e.session())
+      .then(fn);
   }
 
   function scoped(request: RequestLike): SpotterRequestScope {
@@ -382,27 +386,27 @@ export function createSpotter(): SpotterInstance {
     },
     async report(input: ReportInput) {
       if (!ensureInit("report")) throw new Error("Spotter: call spotter.init() before report().");
-      return withEngine((e) => e.report(input));
+      return withSession((s) => s.report(input));
     },
     async captureException(error, context?: ExceptionContext) {
       if (!ensureInit("captureException")) return null;
-      return withEngine((e) => e.captureException(error, context));
+      return withSession((s) => s.captureException(error, context));
     },
     async status(id) {
       if (!ensureInit("status")) return null;
-      return withEngine((e) => e.status(id));
+      return withSession((s) => s.status(id));
     },
     async reply(id, body) {
       if (!ensureInit("reply")) return null;
-      return withEngine((e) => e.reply(id, body));
+      return withSession((s) => s.reply(id, body));
     },
     async similar(page) {
       if (!ensureInit("similar")) return [];
-      return withEngine((e) => e.similar(page));
+      return withSession((s) => s.similar(page));
     },
     async plusOne(id) {
       if (!ensureInit("plusOne")) return null;
-      return withEngine((e) => e.plusOne(id));
+      return withSession((s) => s.plusOne(id));
     },
 
     track(name, props, revenue) {
@@ -453,8 +457,7 @@ export function createSpotter(): SpotterInstance {
     // -- widget API --------------------------------------------------------------------------
     async preload(feature) {
       if (!config || !browser()) return;
-      const e = await loadEngine();
-      await e.preload(feature);
+      await withSession((s) => s.preload(feature));
     },
     async ready() {
       if (!config) return;
@@ -463,14 +466,14 @@ export function createSpotter(): SpotterInstance {
     captureForReport(options) {
       setState("capturing");
       onFirstInteraction();
-      return withEngine((e) => e.captureForReport(options)).catch((error) => {
+      return withSession((s) => s.captureForReport(options)).catch((error) => {
         emit("error", { error, stage: "capture" });
         setState("error");
         throw error;
       });
     },
     submitFromWidget(draft) {
-      return withEngine((e) => e.submitFromWidget(draft));
+      return withSession((s) => s.submitFromWidget(draft));
     },
     discardCapture(id) {
       engine?.discardCapture(id);
@@ -523,7 +526,7 @@ export function createSpotter(): SpotterInstance {
     },
     async startRecording(options) {
       if (off("recording", "startRecording")) throw new Error("Spotter: screen recording is not enabled.");
-      return withEngine((e) => e.startRecording(options));
+      return withSession((s) => s.startRecording(options));
     },
     async flush() {
       if (engine) await engine.flush();

@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "瀏覽器、裝置與頁面網址",
   "review.item.element": "所選元素",
   "review.item.recording": "你的螢幕錄影",
+  "review.item.storage": "儲存空間鍵（不含值）",
+  "review.item.errors": "錯誤（{count}）",
   "review.remove": "移除",
   "review.removed": "已移除",
   "review.restore": "復原",

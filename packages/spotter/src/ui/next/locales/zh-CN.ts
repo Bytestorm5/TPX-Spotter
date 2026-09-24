@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "浏览器、设备和页面地址",
   "review.item.element": "所选元素",
   "review.item.recording": "你的屏幕录制",
+  "review.item.storage": "存储键（不含值）",
+  "review.item.errors": "错误（{count}）",
   "review.remove": "移除",
   "review.removed": "已移除",
   "review.restore": "撤销",

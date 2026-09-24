@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Browser, perangkat, dan alamat halaman",
   "review.item.element": "Elemen yang dipilih",
   "review.item.recording": "Rekaman layar Anda",
+  "review.item.storage": "Kunci penyimpanan (tanpa nilai)",
+  "review.item.errors": "Error ({count})",
   "review.remove": "Hapus",
   "review.removed": "Dihapus",
   "review.restore": "Urungkan",

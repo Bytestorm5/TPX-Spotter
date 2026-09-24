@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "เบราว์เซอร์ อุปกรณ์ และที่อยู่หน้า",
   "review.item.element": "องค์ประกอบที่เลือก",
   "review.item.recording": "การบันทึกหน้าจอของคุณ",
+  "review.item.storage": "คีย์ที่จัดเก็บ (ไม่รวมค่า)",
+  "review.item.errors": "ข้อผิดพลาด ({count})",
   "review.remove": "นำออก",
   "review.removed": "นำออกแล้ว",
   "review.restore": "เลิกทำ",

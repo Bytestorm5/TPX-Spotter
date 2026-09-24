@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "ブラウザ、デバイス、ページのアドレス",
   "review.item.element": "選択した要素",
   "review.item.recording": "画面録画",
+  "review.item.storage": "ストレージのキー（値は含まない）",
+  "review.item.errors": "エラー（{count}）",
   "review.remove": "削除",
   "review.removed": "削除しました",
   "review.restore": "元に戻す",

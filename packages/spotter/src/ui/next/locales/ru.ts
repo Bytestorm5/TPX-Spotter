@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Браузер, устройство и адрес страницы",
   "review.item.element": "Выбранный элемент",
   "review.item.recording": "Ваша запись экрана",
+  "review.item.storage": "Ключи хранилища (без значений)",
+  "review.item.errors": "Ошибки ({count})",
   "review.remove": "Удалить",
   "review.removed": "Удалено",
   "review.restore": "Вернуть",

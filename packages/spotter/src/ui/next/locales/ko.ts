@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "브라우저, 기기 및 페이지 주소",
   "review.item.element": "선택한 요소",
   "review.item.recording": "화면 녹화본",
+  "review.item.storage": "저장소 키(값 제외)",
+  "review.item.errors": "오류({count})",
   "review.remove": "삭제",
   "review.removed": "삭제됨",
   "review.restore": "실행 취소",

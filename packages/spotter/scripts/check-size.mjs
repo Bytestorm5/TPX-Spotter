@@ -13,6 +13,26 @@
  *           recording — and the session chunk (transport, report pipeline,
  *           flags; loaded on first interaction) are listed but not counted.
  *
+ *           What that means for the capture signals: the engine's closure
+ *           holds the patches and bounded buffers of *raw* records. Turning
+ *           them into the report schema — redaction (the scrubber regex
+ *           set), safe serialization, stack parsing, HAR building,
+ *           breadcrumb formatting — happens at snapshot time, so it lives in
+ *           the session chunk (nothing is sent before a snapshot). Everything
+ *           that runs at init/idle in the default config is still counted.
+ *
+ *           Not counted, deliberately:
+ *           - replay (rrweb + fflate, ~30 KB): a heavy feature with its own
+ *             budget ("Replay recording overhead", CPU and memory). It loads
+ *             on idle in the default "on, last 60 s" buffer mode, but it could
+ *             never fit a 15 KB core; the spec lists it apart from the core.
+ *             The redaction module arrives with it when replay loads before
+ *             the session chunk (its error / upload markers are redacted as
+ *             recorded) — that is replay's cost, and the session's otherwise.
+ *           - capture/network-body.ts: request / response body capture,
+ *             loaded only when `privacy.networkBodies` is non-empty (off by
+ *             default; requests finishing before it arrives have no bodies).
+ *
  * Production defines (dev warnings compiled out), minified, ESM with
  * splitting — the way a bundler ships it. React / Next are the app's, so
  * they're external. Sizes are per-chunk gzip (level 9), summed.

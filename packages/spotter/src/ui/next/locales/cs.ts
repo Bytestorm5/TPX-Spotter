@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Prohlížeč, zařízení a adresa stránky",
   "review.item.element": "Vybraný prvek",
   "review.item.recording": "Váš záznam obrazovky",
+  "review.item.storage": "Klíče úložiště (bez hodnot)",
+  "review.item.errors": "Chyby ({count})",
   "review.remove": "Odebrat",
   "review.removed": "Odebráno",
   "review.restore": "Vrátit",

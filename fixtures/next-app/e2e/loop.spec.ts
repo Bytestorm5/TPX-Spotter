@@ -37,14 +37,16 @@ test.describe("team mode and the closed loop", () => {
     await d.getByLabel("Assignee").fill("payments@acme.test");
     await d.getByLabel("Labels").fill("checkout, p0");
     await d.getByText("Developer details").click();
-    await expect(d.getByText("Stripe.js failed to load")).toBeVisible();
+    const code = d.locator(".sp-details .sp-code").first();
+    await code.scrollIntoViewIfNeeded();
+    await expect(code).toContainText("Stripe.js failed to load");
     await shot(page, "40-team");
     await d.getByRole("button", { name: "Send report" }).click();
     // Team mode checks for duplicates first.
     await expect(d.getByRole("heading", { name: "Others reported something similar" })).toBeVisible();
-    await expect(d.getByText("Pay button does nothing.")).toBeVisible();
+    await expect(d.getByText("Pay button does nothing.").first()).toBeVisible();
     await shot(page, "41-similar");
-    await d.getByRole("button", { name: "Me too" }).click();
+    await d.getByRole("button", { name: "Me too" }).first().click();
     await expect(d.getByRole("button", { name: "Added your +1" })).toBeVisible();
     await d.getByRole("button", { name: "Mine is different" }).click();
     await expect(d.getByTestId("spotter-ref")).toBeVisible();

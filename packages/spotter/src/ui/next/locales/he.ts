@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "דפדפן, מכשיר וכתובת הדף",
   "review.item.element": "הרכיב שנבחר",
   "review.item.recording": "הקלטת המסך שלך",
+  "review.item.storage": "מפתחות אחסון (ללא ערכים)",
+  "review.item.errors": "שגיאות ({count})",
   "review.remove": "הסרה",
   "review.removed": "הוסר",
   "review.restore": "ביטול",

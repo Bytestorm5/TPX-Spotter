@@ -22,6 +22,12 @@ do load on idle.
 
 ## Redaction (in the browser, before upload)
 
+Signals are held in memory as raw, bounded records (console arguments are
+copied when logged); the redaction below runs when a report, widget capture
+or flag is snapshotted — in the browser, before anything is sent. Nothing
+leaves the page unredacted. Never-captured headers are dropped at capture
+time and are never held.
+
 - **Pattern scrubbers** run on console arguments, network URLs, headers and
   bodies, breadcrumb labels, error messages and DOM text. They cover emails,
   card numbers (Luhn-checked), SSNs, bearer tokens, API keys, JWTs and common

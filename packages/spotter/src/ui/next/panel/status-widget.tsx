@@ -201,7 +201,7 @@ function ReportRow({ row, rt, unread, onChange }: { row: Row; rt: TriggerRuntime
       </div>
       <span className="sp-list-meta">
         {row.stored.ref}
-        {lastChange?.message ? ` · ${lastChange.message}` : ""}
+        {lastChange?.message && status !== "needs_info" ? ` · ${lastChange.message}` : ""}
       </span>
       {status === "needs_info" && lastTeam ? (
         <div className="sp-thread">

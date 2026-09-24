@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Browser, apparaat en paginaadres",
   "review.item.element": "Het geselecteerde element",
   "review.item.recording": "Je schermopname",
+  "review.item.storage": "Opslagsleutels (zonder waarden)",
+  "review.item.errors": "Fouten ({count})",
   "review.remove": "Verwijderen",
   "review.removed": "Verwijderd",
   "review.restore": "Ongedaan maken",

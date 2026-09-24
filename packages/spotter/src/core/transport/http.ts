@@ -40,6 +40,19 @@ export interface HttpTransportOptions {
   headers?: Record<string, string> | (() => Record<string, string>);
   /** Override for tests / non-browser runtimes. */
   sendBeacon?: (url: string, data: Blob) => boolean;
+  /**
+   * Facts the ingest records for Console's health panel (on `/v1/config`) and
+   * the reporter mode tokens `/v1/similar` needs to widen duplicate search.
+   */
+  meta?: () => TransportMeta;
+}
+
+export interface TransportMeta {
+  sdkVersion?: string;
+  features?: string[];
+  maskText?: string;
+  teamToken?: string;
+  guestToken?: string;
 }
 
 export const DEFAULT_CHUNK_SIZE = 512 * 1024;
@@ -203,7 +216,12 @@ export function createHttpTransport(options: HttpTransportOptions): HttpTranspor
     endpoint: base,
     async config(): Promise<RemoteConfig | null> {
       try {
-        return await json<RemoteConfig>(await send("GET", "/v1/config"));
+        const m = options.meta?.() ?? {};
+        const headers: Record<string, string> = {};
+        if (m.sdkVersion) headers["x-spotter-sdk"] = m.sdkVersion;
+        if (m.features) headers["x-spotter-features"] = m.features.join(",");
+        if (m.maskText) headers["x-spotter-mask"] = m.maskText;
+        return await json<RemoteConfig>(await send("GET", "/v1/config", { headers }));
       } catch {
         return null;
       }
@@ -234,7 +252,11 @@ export function createHttpTransport(options: HttpTransportOptions): HttpTranspor
     },
     async similar(url, selector): Promise<SimilarIssue[]> {
       try {
-        return await json<SimilarIssue[]>(await send("GET", withQuery("/v1/similar", { url, selector })));
+        const m = options.meta?.() ?? {};
+        const headers: Record<string, string> = {};
+        if (m.teamToken) headers["x-spotter-team-token"] = m.teamToken;
+        if (m.guestToken) headers["x-spotter-guest-token"] = m.guestToken;
+        return await json<SimilarIssue[]>(await send("GET", withQuery("/v1/similar", { url, selector }), { headers }));
       } catch {
         return [];
       }
@@ -272,9 +294,9 @@ export function createHttpTransport(options: HttpTransportOptions): HttpTranspor
       const res = await doFetch(url, { method: "POST", body, headers, keepalive: body.length < 60_000, credentials: "omit" });
       if (!res.ok && res.status !== 202) throw await toError(res);
     },
-    async replaySegment(sessionId, seq, data) {
+    async replaySegment(sessionId, seq, data, meta) {
       await retrying(() =>
-        send("POST", withQuery(`/v1/sessions/${encodeURIComponent(sessionId)}/replay`, { seq }), {
+        send("POST", withQuery(`/v1/sessions/${encodeURIComponent(sessionId)}/replay`, { seq, reason: meta?.reason, user: meta?.user }), {
           body: data as BodyInit,
           headers: { "content-type": "application/octet-stream" },
         }),

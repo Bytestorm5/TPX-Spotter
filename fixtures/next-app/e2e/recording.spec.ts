@@ -1,0 +1,32 @@
+import { expect, test } from "@playwright/test";
+import { clearIssues, dialog, shot, useVariant, visit, waitForIssues } from "./helpers";
+
+test("screen recording: setup, recording pill, stop, attached to the report", async ({ page }) => {
+  await useVariant(page, {});
+  await clearIssues(page);
+  await visit(page, "/account");
+  await page.getByTestId("record").click();
+  const d = dialog(page);
+  await expect(d.getByRole("heading", { name: "Record your screen" })).toBeVisible();
+  await shot(page, "50-recording-setup");
+  await d.getByRole("button", { name: "Start recording" }).click();
+  const pill = page.locator("[data-spotter-ui] .sp-float");
+  await expect(pill).toBeVisible();
+  await expect(d).toBeHidden();
+  await page.waitForTimeout(1500);
+  await shot(page, "51-recording-pill");
+  const stop = pill.getByRole("button", { name: "Stop recording" });
+  if (await stop.isVisible()) await stop.click();
+  await expect(d).toBeVisible();
+  const recorded = d.getByText(/Screen recording \(\d+:\d\d\)/);
+  const failed = page.locator("[data-spotter-ui] [role=alert]", { hasText: "Screen recording isn't available" });
+  await expect(recorded.or(failed)).toBeVisible();
+  const ok = await recorded.isVisible();
+  await d.locator("#sp-desc").fill("Hovering the avatar flickers.");
+  await shot(page, "52-recording-attached");
+  await d.getByRole("button", { name: "Send report" }).click();
+  await expect(d.getByTestId("spotter-ref")).toBeVisible();
+  const [issue] = await waitForIssues(page, 1);
+  if (ok) expect(issue.artifacts.map((a: { kind: string }) => a.kind)).toContain("recording");
+  else test.info().annotations.push({ type: "note", description: "getDisplayMedia unavailable in this browser: fallback path verified" });
+});

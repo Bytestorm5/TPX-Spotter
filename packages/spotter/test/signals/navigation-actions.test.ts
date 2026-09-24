@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installNavigation, onNavigation } from "../../src/core/capture/navigation.ts";
 import { installActions, isRageBurst } from "../../src/core/capture/actions.ts";
 import { noteNetworkActivity } from "../../src/core/capture/network.ts";
+import { finalizeCrumbs, finalizeNavigation } from "../../src/core/capture/finalize.ts";
 import type { Signal } from "../../src/core/internal.ts";
 import { setUrl, testRuntime, type TestRuntime } from "./helpers.ts";
 
@@ -32,7 +33,9 @@ describe("installNavigation", () => {
     history.pushState({}, "", "/cart#summary");
     off();
 
-    const { entries, history: hist } = sig.snapshot();
+    // Held raw; URLs are redacted when the session snapshots them.
+    expect(sig.snapshot().entries[0]?.to).toBe("https://app.example.com/start?token=abc");
+    const { entries, history: hist } = finalizeNavigation(sig.snapshot(), rt.redactor);
     expect(entries.map((e) => [e.kind, e.to])).toEqual([
       ["load", "https://app.example.com/start?token=[redacted]"],
       ["push", "https://app.example.com/products/1?session=[redacted]"],
@@ -44,7 +47,7 @@ describe("installNavigation", () => {
     expect(hist).toEqual(["https://app.example.com/products/1?tab=reviews", "https://app.example.com/cart", "https://app.example.com/cart#summary"]);
     expect(rt.navs).toHaveLength(5);
     expect(listener).toHaveBeenCalledTimes(5);
-    expect(rt.crumbs.filter((c) => c.category === "navigation").at(1)?.message).toBe("/start?token=[redacted] → /products/1?session=[redacted]");
+    expect(finalizeCrumbs(rt.crumbs, rt.redactor).filter((c) => c.category === "navigation").at(1)?.message).toBe("/start?token=[redacted] → /products/1?session=[redacted]");
   });
 
   it("records popstate, uses route patterns, and unpatches history", () => {
@@ -70,8 +73,9 @@ describe("installActions", () => {
     document.body.innerHTML = `<button id="pay"><span>Pay jane@x.io</span></button>`;
     signals.push(installActions(rt));
     click(document.querySelector("span")!, 40, 50);
-    const c = rt.crumbs.find((x) => x.category === "click");
+    const c = finalizeCrumbs(rt.crumbs, rt.redactor).find((x) => x.category === "click");
     expect(c).toMatchObject({ selector: "#pay", message: 'Clicked "Pay [redacted:email]"' });
+    expect(c).not.toHaveProperty("label");
     expect(c?.data).toMatchObject({ x: 40, y: 50 });
     expect(c?.data).toHaveProperty("docWidth");
     expect(c?.data).toHaveProperty("docHeight");

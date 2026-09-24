@@ -121,19 +121,9 @@ describe("createRedactor", () => {
     expect(isSensitiveKey("author")).toBe(false);
   });
 
-  it("never captures auth/cookie headers even when allowlisted", () => {
-    const headers: [string, string][] = [
-      ["Authorization", "Bearer abcdefghijkl"],
-      ["Cookie", "sid=1"],
-      ["Set-Cookie", "sid=1"],
-      ["Proxy-Authorization", "Basic xx"],
-      ["Content-Type", "application/json"],
-      ["X-Request-Id", "req-1 a@b.co"],
-      ["X-Other", "nope"],
-    ];
-    expect(r.redactHeaders(headers, ["authorization", "cookie", "set-cookie", "proxy-authorization", "content-type", "x-request-id"])).toEqual([
-      { name: "Content-Type", value: "application/json" },
-      { name: "X-Request-Id", value: "req-1 [redacted:email]" },
-    ]);
+  it("strips sensitive query parameters inside free text (breadcrumb messages)", () => {
+    expect(r.redactMessage("GET /api/items?secret=s&page=2 500", "breadcrumb")).toBe("GET /api/items?secret=[redacted]&page=2 500");
+    expect(r.redactMessage("/a?code=xyz → /b?session=1", "breadcrumb")).toBe("/a?code=[redacted] → /b?session=[redacted]");
+    expect(r.redactMessage("Why? mail a@b.co", "breadcrumb")).toBe("Why? mail [redacted:email]");
   });
 });

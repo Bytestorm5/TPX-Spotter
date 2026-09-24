@@ -1,12 +1,17 @@
 /**
- * Network capture for `fetch`, `XMLHttpRequest` and `navigator.sendBeacon`,
- * recorded as a HAR 1.2 log.
+ * Network capture for `fetch`, `XMLHttpRequest` and `navigator.sendBeacon`.
  *
- * By default only the shape of a request is kept: method, redacted URL,
- * status, timing, sizes, initiator. Headers and bodies are opt-in
- * (`privacy.networkHeaders`, `privacy.networkBodies` URL patterns) and pass
- * through redaction; `Authorization`, `Cookie`, `Set-Cookie` and
- * `Proxy-Authorization` are never captured.
+ * This is the part that loads at init: the patches and a bounded buffer of
+ * raw request records (method, URL, status, timing, sizes, initiator,
+ * traceparent). By default only that shape is kept. Headers and bodies are
+ * opt-in (`privacy.networkHeaders`, `privacy.networkBodies` URL patterns);
+ * `Authorization`, `Cookie`, `Set-Cookie` and `Proxy-Authorization` are never
+ * captured — they are dropped here, before anything is held.
+ *
+ * Redaction happens at snapshot time: `harFrom()` (network-har.ts, in the
+ * session chunk) strips sensitive query parameters, scrubs URLs, header
+ * values and bodies, and builds the HAR 1.2 log. Nothing in this buffer ever
+ * leaves the page without going through it.
  *
  * Same-origin fetch/XHR requests carry `x-spotter-session` so the server side
  * can link its errors to this browser session. Cross-origin requests are left
@@ -15,18 +20,42 @@
  *
  * Spotter's own ingest traffic is never recorded (or tagged).
  */
-import type { Har, HarEntry } from "../schema.ts";
 import type { Runtime, Signal } from "../internal.ts";
-import { RingBuffer } from "../buffer.ts";
-import { NEVER_CAPTURED_HEADERS } from "../redact.ts";
-import { truncate, utf8Length } from "../serialize.ts";
+import { RingBuffer, truncate, utf8Length } from "../buffer.ts";
+import type * as BodyCapture from "./network-body.ts";
 import { absoluteUrl, hasDom, iso, patchMethod, shortUrl } from "./util.ts";
 
 export const SESSION_HEADER = "x-spotter-session";
 const MAX_BODY = 8 * 1024;
 const MAX_BYTES = 512 * 1024;
 const MAX_TRACEPARENTS = 10;
-const SDK_VERSION = "0.1.0";
+
+/** Headers that are never captured, whatever the allowlist says. */
+export const NEVER_CAPTURED_HEADERS: ReadonlySet<string> = new Set(["authorization", "cookie", "set-cookie", "proxy-authorization"]);
+
+/** A request as captured, before redaction. `harFrom()` turns these into HAR entries. */
+export interface RawRequest {
+  initiator: "fetch" | "xhr" | "beacon";
+  method: string;
+  /** Absolute and unredacted: `harFrom()` redacts it (and any crumb built from it) before it is sent. */
+  url: string;
+  /** Start, ms since epoch. */
+  at: number;
+  time: number;
+  status: number;
+  statusText: string;
+  /** Allowlisted headers only (never the ones above). */
+  reqHeaders: [string, string][];
+  resHeaders: [string, string][];
+  reqSize: number;
+  resSize: number;
+  mime: string;
+  /** Bodies of allowlisted URLs, capped at 8 KB. */
+  reqBody?: { text: string; mime: string };
+  resText?: string;
+  traceparent?: string;
+  error?: string;
+}
 
 // -- network-activity bus (the dead-click detector listens) ---------------------------------
 
@@ -70,32 +99,6 @@ export function isSameOrigin(url: string): boolean {
   }
 }
 
-/** Glob (`*` any run, leading `/` = path match) or RegExp against the absolute URL. */
-export function urlMatches(url: string, patterns: readonly (string | RegExp)[]): boolean {
-  if (!patterns.length) return false;
-  let path = url;
-  try {
-    const u = new URL(url);
-    path = u.pathname + u.search;
-  } catch {
-    /* not absolute */
-  }
-  for (const p of patterns) {
-    try {
-      if (p instanceof RegExp) {
-        p.lastIndex = 0;
-        if (p.test(url)) return true;
-        continue;
-      }
-      const re = new RegExp(`^${p.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*+/g, ".*")}$`);
-      if (re.test(p.startsWith("/") ? path : url) || (p.startsWith("/") && re.test(path.split("?")[0] ?? ""))) return true;
-    } catch {
-      /* bad pattern */
-    }
-  }
-  return false;
-}
-
 const TRACEPARENT = /\b([0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2})\b/;
 
 /** A W3C traceparent from a `traceparent` header value or a `server-timing` entry (`traceparent;desc="00-…"`). */
@@ -105,48 +108,10 @@ export function extractTraceparent(value: string | null | undefined): string | u
   return m?.[1];
 }
 
-function isTextual(mime: string): boolean {
-  return /^(text\/|application\/(?:json|[\w.+-]*\+json|xml|[\w.+-]*\+xml|x-www-form-urlencoded|javascript|graphql))/i.test(mime) || mime === "";
-}
-
-/** Describe a request body without reading streams: text for strings/params, a summary otherwise. */
-function describeBody(body: unknown): { text?: string; size: number; mime?: string } {
-  if (body === undefined || body === null) return { size: 0 };
-  try {
-    if (typeof body === "string") return { text: body, size: utf8Length(body) };
-    if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
-      const s = body.toString();
-      return { text: s, size: s.length, mime: "application/x-www-form-urlencoded" };
-    }
-    if (typeof FormData !== "undefined" && body instanceof FormData) {
-      const keys: string[] = [];
-      body.forEach((_v, k) => keys.push(k));
-      return { text: `[FormData: ${keys.slice(0, 50).join(", ")}]`, size: -1, mime: "multipart/form-data" };
-    }
-    if (typeof Blob !== "undefined" && body instanceof Blob) return { text: `[Blob ${body.size} bytes]`, size: body.size, mime: body.type };
-    if (body instanceof ArrayBuffer) return { text: `[binary ${body.byteLength} bytes]`, size: body.byteLength };
-    if (ArrayBuffer.isView(body)) return { text: `[binary ${body.byteLength} bytes]`, size: body.byteLength };
-    if (typeof ReadableStream !== "undefined" && body instanceof ReadableStream) return { text: "[stream]", size: -1 };
-  } catch {
-    /* fall through */
-  }
-  return { size: -1 };
-}
-
-function headerPairs(headers: unknown): [string, string][] {
+/** Header pairs of a `Headers` (names come back lower-cased). */
+function headerPairs(headers: Headers): [string, string][] {
   const out: [string, string][] = [];
-  try {
-    if (!headers) return out;
-    if (typeof Headers !== "undefined" && headers instanceof Headers) {
-      headers.forEach((v, k) => out.push([k, v]));
-    } else if (Array.isArray(headers)) {
-      for (const pair of headers) if (Array.isArray(pair) && pair.length >= 2) out.push([String(pair[0]), String(pair[1])]);
-    } else if (typeof headers === "object") {
-      for (const [k, v] of Object.entries(headers as Record<string, unknown>)) out.push([k, String(v)]);
-    }
-  } catch {
-    /* unreadable headers */
-  }
+  headers.forEach((v, k) => out.push([k, v]));
   return out;
 }
 
@@ -159,55 +124,6 @@ function parseRawHeaders(raw: string): [string, string][] {
   return out;
 }
 
-function queryString(url: string): { name: string; value: string }[] {
-  const q = url.indexOf("?");
-  if (q === -1) return [];
-  const h = url.indexOf("#", q);
-  const query = url.slice(q + 1, h === -1 ? undefined : h);
-  const out: { name: string; value: string }[] = [];
-  for (const pair of query.split("&")) {
-    if (!pair) continue;
-    const eq = pair.indexOf("=");
-    const dec = (s: string) => {
-      try {
-        return decodeURIComponent(s.replace(/\+/g, " "));
-      } catch {
-        return s;
-      }
-    };
-    out.push({ name: dec(eq === -1 ? pair : pair.slice(0, eq)), value: eq === -1 ? "" : dec(pair.slice(eq + 1)) });
-    if (out.length >= 50) break;
-  }
-  return out;
-}
-
-/** Read at most `max` bytes of text from a (cloned) response, then cancel the rest. */
-async function readCapped(res: Response, max: number): Promise<string> {
-  const body = res.body;
-  if (!body || typeof body.getReader !== "function") {
-    return truncate(await res.text(), max);
-  }
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  let truncated = false;
-  try {
-    while (text.length < max) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      text += decoder.decode(value, { stream: true });
-    }
-    if (text.length >= max) truncated = true;
-  } finally {
-    try {
-      void reader.cancel();
-    } catch {
-      /* already closed */
-    }
-  }
-  return truncated ? truncate(text, max) : text;
-}
-
 interface Pending {
   initiator: "fetch" | "xhr" | "beacon";
   method: string;
@@ -215,17 +131,31 @@ interface Pending {
   start: number;
   startedAt: number;
   reqHeaders: [string, string][];
-  reqBody?: { text?: string; size: number; mime?: string };
+  reqSize: number;
+  reqBody?: { text?: string; mime?: string };
   traceparent?: string;
 }
 
-export type NetworkSignal = Signal<Har> & { traceparents(): string[] };
+/** Request body size without reading it (bodies themselves are only kept for allowlisted URLs). */
+function bodySize(body: unknown): number {
+  if (body === undefined || body === null) return 0;
+  if (typeof body === "string") return utf8Length(body);
+  if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) return String(body).length;
+  const n = (body as Blob).size ?? (body as ArrayBuffer).byteLength;
+  return typeof n === "number" ? n : -1;
+}
+
+export type NetworkSignal = Signal<RawRequest[]> & {
+  traceparents(): string[];
+  /** Settles once body capture (only loaded for a non-empty `privacy.networkBodies`) is ready. */
+  ready: Promise<void>;
+};
 
 export function installNetwork(
   rt: Runtime,
   opts: { max: number; bodies: (string | RegExp)[]; headers: string[] },
 ): NetworkSignal {
-  const buffer = new RingBuffer<HarEntry>(Math.max(0, opts.max), MAX_BYTES);
+  const buffer = new RingBuffer<RawRequest>(Math.max(0, opts.max), MAX_BYTES);
   const traces: string[] = [];
   const undo: (() => void)[] = [];
   let active = true;
@@ -234,11 +164,7 @@ export function installNetwork(
   const fault = (error: unknown) => {
     if (!active) return;
     active = false;
-    try {
-      rt.fault("network", error);
-    } catch {
-      /* never throw into the host */
-    }
+    rt.fault("network", error); // the engine's fault() never throws
   };
 
   const noteTrace = (tp: string | undefined) => {
@@ -251,12 +177,19 @@ export function installNetwork(
 
   const ignored = (url: string) => isSpotterUrl(url, rt.config.endpoint);
 
+  // Bodies are opt-in: their code loads only when the allowlist is set.
+  let bodies: typeof BodyCapture | null = null;
+  const ready = opts.bodies.length
+    ? import("./network-body.ts").then(
+        (m) => void (bodies = m),
+        () => {},
+      )
+    : Promise.resolve();
+  const wantsBody = (url: string) => !!bodies?.urlMatches(url, opts.bodies);
+
   // Allowlisted headers only; the never-captured set (Authorization, Cookie, …) is dropped whatever the allowlist says.
   const allowHeaders = new Set(opts.headers.map((h) => h.toLowerCase()));
-  const redactHeadersFor = (pairs: [string, string][]) =>
-    pairs
-      .filter(([k]) => !NEVER_CAPTURED_HEADERS.has(k.toLowerCase()) && allowHeaders.has(k.toLowerCase()))
-      .map(([name, value]) => ({ name, value: rt.redact(String(value), "network") }));
+  const keepHeaders = (pairs: [string, string][]) => pairs.filter(([k]) => !NEVER_CAPTURED_HEADERS.has(k.toLowerCase()) && allowHeaders.has(k.toLowerCase()));
 
   const begin = (initiator: Pending["initiator"], method: string, rawUrl: string, reqHeaders: [string, string][], body: unknown): Pending => {
     const url = absoluteUrl(rawUrl);
@@ -267,8 +200,9 @@ export function installNetwork(
       start: perfNow(),
       startedAt: rt.now(),
       reqHeaders,
-      reqBody: describeBody(body),
+      reqSize: bodySize(body),
     };
+    if (wantsBody(url)) p.reqBody = bodies?.describeBody(body);
     const tp = reqHeaders.find(([k]) => k.toLowerCase() === "traceparent");
     if (tp) p.traceparent = extractTraceparent(tp[1]);
     noteNetworkActivity();
@@ -281,61 +215,45 @@ export function installNetwork(
   ) => {
     if (!active) return;
     try {
-      const duration = Math.max(0, Math.round(perfNow() - p.start));
-      const url = rt.redactUrl(p.url);
-      const withBodies = urlMatches(p.url, opts.bodies);
+      const time = Math.max(0, Math.round(perfNow() - p.start));
       const respTp =
         extractTraceparent(res.headers.find(([k]) => k === "traceparent")?.[1]) ??
         extractTraceparent(res.headers.find(([k]) => k === "server-timing")?.[1]);
       const traceparent = p.traceparent ?? respTp;
       noteTrace(traceparent);
-
-      const entry: HarEntry = {
-        startedDateTime: iso(p.startedAt),
-        time: duration,
-        request: {
-          method: p.method,
-          url,
-          httpVersion: "HTTP/1.1",
-          headers: redactHeadersFor(p.reqHeaders),
-          queryString: queryString(url),
-          cookies: [],
-          headersSize: -1,
-          bodySize: p.reqBody?.size ?? 0,
-        },
-        response: {
-          status: res.status,
-          statusText: res.statusText,
-          httpVersion: "HTTP/1.1",
-          headers: redactHeadersFor(res.headers),
-          cookies: [],
-          content: { size: res.size, mimeType: res.mime || "x-unknown" },
-          redirectURL: "",
-          headersSize: -1,
-          bodySize: res.size,
-        },
-        cache: {},
-        timings: { send: 0, wait: duration, receive: 0 },
-        _initiator: p.initiator,
+      const entry: RawRequest = {
+        initiator: p.initiator,
+        method: p.method,
+        url: p.url,
+        at: p.startedAt,
+        time,
+        status: res.status,
+        statusText: res.statusText,
+        reqHeaders: keepHeaders(p.reqHeaders),
+        resHeaders: keepHeaders(res.headers),
+        reqSize: p.reqSize,
+        resSize: res.size,
+        mime: res.mime,
       };
-      if (withBodies && p.reqBody?.text !== undefined) {
-        entry.request.postData = {
-          mimeType: p.reqBody.mime ?? p.reqHeaders.find(([k]) => k.toLowerCase() === "content-type")?.[1] ?? "text/plain",
-          text: rt.redact(truncate(p.reqBody.text, MAX_BODY), "network"),
+      if (p.reqBody?.text !== undefined) {
+        entry.reqBody = {
+          mime: p.reqBody.mime ?? p.reqHeaders.find(([k]) => k.toLowerCase() === "content-type")?.[1] ?? "text/plain",
+          text: truncate(p.reqBody.text, MAX_BODY),
         };
       }
-      if (withBodies && res.text !== undefined) entry.response.content.text = rt.redact(truncate(res.text, MAX_BODY), "network");
-      if (traceparent) entry._traceparent = traceparent;
-      if (res.error) entry._error = res.error;
+      if (res.text !== undefined) entry.resText = truncate(res.text, MAX_BODY);
+      if (traceparent) entry.traceparent = traceparent;
+      if (res.error) entry.error = res.error;
       buffer.push(entry);
 
       if (res.error || res.status >= 400) {
+        // Raw URL here: crumbs are redacted with everything else at snapshot time.
         rt.breadcrumb({
           at: iso(rt.now()),
           category: "network",
           level: res.error || res.status >= 500 ? "error" : "warning",
-          message: `${p.method} ${shortUrl(url)} ${res.error ? `failed (${res.error})` : res.status}`,
-          data: { method: p.method, url, status: res.status, duration },
+          message: `${p.method} ${shortUrl(p.url)} ${res.error ? `failed (${res.error})` : res.status}`,
+          data: { method: p.method, url: p.url, status: res.status, duration: time },
         });
       }
     } catch (error) {
@@ -378,7 +296,7 @@ export function installNetwork(
             promise.then(
               (response) => {
                 try {
-                  const headers = headerPairs(response.headers).map(([k, v]) => [k.toLowerCase(), v] as [string, string]);
+                  const headers = headerPairs(response.headers);
                   const mime = response.headers.get("content-type") ?? "";
                   const size = Number(response.headers.get("content-length") ?? -1);
                   const base = {
@@ -388,7 +306,7 @@ export function installNetwork(
                     mime,
                     size: Number.isFinite(size) ? size : -1,
                   };
-                  if (urlMatches(p.url, opts.bodies) && isTextual(mime) && response.type !== "opaque") {
+                  if (bodies && wantsBody(p.url) && bodies.isTextual(mime) && response.type !== "opaque") {
                     let clone: Response | null = null;
                     try {
                       clone = response.clone();
@@ -396,7 +314,7 @@ export function installNetwork(
                       clone = null;
                     }
                     if (clone) {
-                      readCapped(clone, MAX_BODY).then(
+                      bodies.readCapped(clone, MAX_BODY).then(
                         (text) => finish(p, { ...base, text }),
                         () => finish(p, base),
                       );
@@ -483,7 +401,7 @@ export function installNetwork(
                     const headers = parseRawHeaders(xhr.getAllResponseHeaders() || "");
                     const mime = headers.find(([k]) => k === "content-type")?.[1] ?? "";
                     let text: string | undefined;
-                    if (!error && urlMatches(p.url, opts.bodies) && isTextual(mime)) {
+                    if (!error && wantsBody(p.url) && bodies?.isTextual(mime)) {
                       if (xhr.responseType === "" || xhr.responseType === "text") text = xhr.responseText;
                       else if (xhr.responseType === "json") text = JSON.stringify(xhr.response);
                     }
@@ -549,10 +467,9 @@ export function installNetwork(
 
   return {
     name: "network",
-    snapshot: (): Har => ({
-      log: { version: "1.2", creator: { name: "@trusplex/spotter", version: SDK_VERSION }, entries: buffer.toArray() },
-    }),
+    snapshot: () => buffer.toArray(),
     traceparents: () => traces.slice(),
+    ready,
     destroy() {
       active = false;
       for (const fn of undo.splice(0)) fn();

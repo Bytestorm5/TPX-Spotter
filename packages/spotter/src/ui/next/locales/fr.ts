@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Navigateur, appareil et adresse de la page",
   "review.item.element": "L’élément sélectionné",
   "review.item.recording": "Votre enregistrement d’écran",
+  "review.item.storage": "Clés de stockage (sans les valeurs)",
+  "review.item.errors": "Erreurs ({count})",
   "review.remove": "Retirer",
   "review.removed": "Retiré",
   "review.restore": "Annuler",

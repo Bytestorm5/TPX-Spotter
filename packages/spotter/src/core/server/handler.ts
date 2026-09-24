@@ -353,7 +353,19 @@ export function createIngestHandler(options: IngestHandlerOptions = {}): IngestH
 
   async function proxy(request: Request, path: string, search: string, body?: Uint8Array): Promise<Response> {
     const headers = new Headers();
-    for (const h of ["content-type", "x-spotter-key", "x-spotter-upload-token", "x-spotter-content-type", "x-spotter-session", "traceparent"]) {
+    for (const h of [
+      "content-type",
+      "x-spotter-key",
+      "x-spotter-upload-token",
+      "x-spotter-content-type",
+      "x-spotter-session",
+      "x-spotter-sdk",
+      "x-spotter-features",
+      "x-spotter-mask",
+      "x-spotter-team-token",
+      "x-spotter-guest-token",
+      "traceparent",
+    ]) {
       const v = request.headers.get(h);
       if (v) headers.set(h, v);
     }

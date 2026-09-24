@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Selain, laite ja sivun osoite",
   "review.item.element": "Valittu elementti",
   "review.item.recording": "Näyttötallenteesi",
+  "review.item.storage": "Tallennusavaimet (ilman arvoja)",
+  "review.item.errors": "Virheet ({count})",
   "review.remove": "Poista",
   "review.removed": "Poistettu",
   "review.restore": "Kumoa",

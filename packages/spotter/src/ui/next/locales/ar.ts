@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "المتصفح والجهاز وعنوان الصفحة",
   "review.item.element": "العنصر المحدد",
   "review.item.recording": "تسجيل شاشتك",
+  "review.item.storage": "مفاتيح التخزين (بدون القيم)",
+  "review.item.errors": "الأخطاء ({count})",
   "review.remove": "إزالة",
   "review.removed": "تمت الإزالة",
   "review.restore": "تراجع",

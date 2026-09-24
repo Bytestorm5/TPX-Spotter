@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Tarayıcı, cihaz ve sayfa adresi",
   "review.item.element": "Seçilen öğe",
   "review.item.recording": "Ekran kaydın",
+  "review.item.storage": "Depolama anahtarları (değerler hariç)",
+  "review.item.errors": "Hatalar ({count})",
   "review.remove": "Kaldır",
   "review.removed": "Kaldırıldı",
   "review.restore": "Geri al",

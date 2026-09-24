@@ -4,6 +4,10 @@
  * them), `popstate` and `hashchange`. Every change is reported to the client
  * (`rt.navigated`, which drives analytics pageviews) and to in-process
  * listeners (`onNavigation`, which resets per-page performance metrics).
+ *
+ * URLs are held as they are; `finalizeNavigation` / `finalizeCrumbs` redact
+ * them at snapshot time, and every consumer of `rt.navigated` (analytics)
+ * redacts what it sends.
  */
 import type { NavigationEntry } from "../schema.ts";
 import type { Runtime, Signal } from "../internal.ts";
@@ -36,27 +40,22 @@ export function installNavigation(rt: Runtime, opts: { max: number }): Signal<Na
   const fault = (error: unknown) => {
     if (!active) return;
     active = false;
-    try {
-      rt.fault("navigation", error);
-    } catch {
-      /* never throw into the host */
-    }
+    rt.fault("navigation", error); // the engine's fault() never throws
   };
 
   const record = (kind: NavigationEntry["kind"], to: string, from?: string) => {
-    const redactedTo = rt.redactUrl(to);
-    const entry: NavigationEntry = { at: iso(rt.now()), to: redactedTo, kind };
-    if (from) entry.from = rt.redactUrl(from);
+    const entry: NavigationEntry = { at: iso(rt.now()), to, kind };
+    if (from) entry.from = from;
     const pattern = rt.routePattern(to);
     if (pattern) entry.routePattern = pattern;
     entries.push(entry);
-    history.push(redactedTo);
+    history.push(to);
     while (history.length > maxHistory) history.shift();
     rt.breadcrumb({
       at: entry.at,
       category: "navigation",
       level: "info",
-      message: kind === "load" ? `Loaded ${shortUrl(redactedTo)}` : `${entry.from ? shortUrl(entry.from) : "?"} → ${shortUrl(redactedTo)}`,
+      message: kind === "load" ? `Loaded ${shortUrl(to)}` : `${from ? shortUrl(from) : "?"} → ${shortUrl(to)}`,
       data: { kind },
     });
     rt.navigated(entry);

@@ -115,7 +115,7 @@ test.describe("report flow", () => {
     const ms = await page.evaluate(
       () =>
         new Promise<number>((resolve) => {
-          const host = document.querySelector("[data-spotter-ui]")!;
+          const host = document.querySelector("body > div[data-spotter-ui]")!;
           const btn = host.shadowRoot!.querySelector<HTMLButtonElement>(".sp-trigger")!;
           const t0 = performance.now();
           const check = () => {
@@ -132,12 +132,16 @@ test.describe("report flow", () => {
 
   test("keyboard only: shortcut, annotate with the keyboard, describe, send", async ({ page }) => {
     await visit(page, "/blog/winter-layering-guide");
-    await page.keyboard.press("Shift+Alt+B");
     const d = dialog(page);
-    await expect(d).toBeVisible();
-    const canvas = d.locator("canvas.sp-canvas");
+    // The shortcut listener installs at idle, just after the trigger mounts.
+    await expect(async () => {
+      await page.keyboard.press("Shift+Alt+B");
+      await expect(d).toBeVisible({ timeout: 500 });
+    }).toPass({ timeout: 10_000 });
+    const canvas = d.locator("canvas.sp-canvas[tabindex='0']"); // the interactive canvas, not the static preview shown while it loads
     await expect(canvas).toBeVisible({ timeout: 15_000 });
-    // Focus starts in the dialog; reach the canvas with Tab.
+    // Focus starts in "What went wrong?"; the canvas is a Tab stop.
+    await expect(d.locator("#sp-desc")).toBeFocused();
     await canvas.focus();
     await page.keyboard.press("r"); // rectangle tool
     await page.keyboard.press("Enter"); // start a selection

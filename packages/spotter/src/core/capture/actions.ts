@@ -13,11 +13,13 @@
  *
  * Events inside Spotter's own UI (`[data-spotter-ui]`, through shadow roots)
  * are ignored.
+ *
+ * Labels are held raw (≤ 200 chars) in the crumb's `label`; they are
+ * redacted and capped at 60 chars at snapshot time (`finalizeCrumbs`).
  */
-import type { Breadcrumb, Json } from "../schema.ts";
-import type { Runtime, Signal } from "../internal.ts";
+import type { Json } from "../schema.ts";
+import { LABEL, type RawCrumb, type Runtime, type Signal } from "../internal.ts";
 import { cssSelector } from "../selector.ts";
-import { truncate } from "../serialize.ts";
 import { eventTarget, fromSpotterUi, isTextMasked, maskRules, safeClosest, UI_ATTR } from "./mask.ts";
 import { onNetworkActivity } from "./network.ts";
 import { hasDom, iso, listen } from "./util.ts";
@@ -65,17 +67,15 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
   const fault = (error: unknown) => {
     if (!active) return;
     active = false;
-    try {
-      rt.fault("actions", error);
-    } catch {
-      /* never throw into the host */
-    }
+    rt.fault("actions", error); // the engine's fault() never throws
     cleanup();
   };
 
-  const crumb = (c: Omit<Breadcrumb, "at">) => rt.breadcrumb({ at: iso(rt.now()), ...c });
+  /** `Clicked "<label>"` when there is a label (substituted, redacted, at snapshot), else `Clicked <selector>`. */
+  const crumb = (c: Omit<RawCrumb, "at" | "message">, verb: string, label: string, selector: string) =>
+    rt.breadcrumb({ at: iso(rt.now()), ...c, message: `${verb} ${label ? `"${LABEL}"` : selector}`, ...(label ? { label } : {}), selector });
 
-  /** Short visible label for an element, redacted; empty when its text is masked. */
+  /** Short visible label for an element (raw; redacted at snapshot); empty when its text is masked. */
   const labelOf = (el: Element): string => {
     try {
       const aria = el.getAttribute("aria-label") || el.getAttribute("title") || el.getAttribute("alt");
@@ -91,8 +91,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
           text = el.textContent ?? "";
         }
       }
-      text = text.replace(/\s+/g, " ").trim();
-      return text ? truncate(rt.redact(text, "breadcrumb"), 60) : "";
+      return text.slice(0, 1000).replace(/\s+/g, " ").trim().slice(0, 200);
     } catch {
       return "";
     }
@@ -153,13 +152,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       const p = deadPending;
       resolveDead();
       if (!p || !active || document.visibilityState === "hidden") return;
-      crumb({
-        category: "dead_click",
-        level: "warning",
-        message: `Dead click on ${p.label ? `"${p.label}"` : p.selector}`,
-        selector: p.selector,
-        data: p.point as unknown as Record<string, Json>,
-      });
+      crumb({ category: "dead_click", level: "warning", data: p.point as unknown as Record<string, Json> }, "Dead click on", p.label, p.selector);
     }, DEAD_WINDOW_MS);
   };
 
@@ -174,25 +167,13 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       const label = labelOf(el);
       const point = pointOf(event as MouseEvent);
       const now = rt.now();
-      crumb({
-        category: "click",
-        level: "info",
-        message: label ? `Clicked "${label}"` : `Clicked ${selector}`,
-        selector,
-        data: point as unknown as Record<string, Json>,
-      });
+      crumb({ category: "click", level: "info", data: point as unknown as Record<string, Json> }, "Clicked", label, selector);
 
       recent.push({ t: now, x: point.x, y: point.y });
       while (recent.length && now - (recent[0]?.t ?? now) > RAGE_WINDOW_MS) recent.shift();
       if (isRageBurst(recent, now) && now - rageFiredAt > RAGE_WINDOW_MS) {
         rageFiredAt = now;
-        crumb({
-          category: "rage_click",
-          level: "warning",
-          message: `Rage click on ${label ? `"${label}"` : selector}`,
-          selector,
-          data: { ...point, count: recent.length } as unknown as Record<string, Json>,
-        });
+        crumb({ category: "rage_click", level: "warning", data: { ...point, count: recent.length } as unknown as Record<string, Json> }, "Rage click on", label, selector);
       } else if (rageFiredAt && now - rageFiredAt <= RAGE_WINDOW_MS) {
         rageFiredAt = now; // still the same burst: extend it, don't fire again
       }
@@ -211,13 +192,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
     try {
       if (rt.now() - lastClick.t > ERROR_WINDOW_MS) return;
       lastClick.errored = true;
-      crumb({
-        category: "error_click",
-        level: "error",
-        message: `Error after click on ${lastClick.label ? `"${lastClick.label}"` : lastClick.selector}`,
-        selector: lastClick.selector,
-        data: lastClick.point as unknown as Record<string, Json>,
-      });
+      crumb({ category: "error_click", level: "error", data: lastClick.point as unknown as Record<string, Json> }, "Error after click on", lastClick.label, lastClick.selector);
     } catch (error) {
       fault(error);
     }
@@ -243,13 +218,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       const type = tag === "input" ? (el.getAttribute("type") || "text").toLowerCase() : editable ? "contenteditable" : tag;
       const selector = cssSelector(el);
       const label = labelOf(el);
-      crumb({
-        category: "input",
-        level: "info",
-        message: `Changed ${type} ${label ? `"${label}"` : selector}`,
-        selector,
-        data: { type },
-      });
+      crumb({ category: "input", level: "info", data: { type } }, `Changed ${type}`, label, selector);
     } catch (error) {
       fault(error);
     }
@@ -265,7 +234,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       if (!el || !/^(input|select|textarea)$/.test(el.localName)) return;
       const selector = cssSelector(el);
       const label = labelOf(el);
-      crumb({ category: "focus", level: "debug", message: `Focused ${label ? `"${label}"` : selector}`, selector });
+      crumb({ category: "focus", level: "debug" }, "Focused", label, selector);
     } catch (error) {
       fault(error);
     }
@@ -285,7 +254,8 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
         const doc = document.documentElement;
         const max = Math.max(1, doc.scrollHeight - window.innerHeight);
         const depth = Math.min(100, Math.round((window.scrollY / max) * 100));
-        crumb({
+        rt.breadcrumb({
+          at: iso(rt.now()),
           category: "scroll",
           level: "debug",
           message: `Scrolled to ${depth}%`,

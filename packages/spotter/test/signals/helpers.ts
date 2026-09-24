@@ -1,11 +1,15 @@
-import type { Breadcrumb, ErrorEntry, Json, NavigationEntry, ReleaseInfo } from "../../src/core/schema.ts";
+import type { ErrorEntry, Json, NavigationEntry, ReleaseInfo } from "../../src/core/schema.ts";
 import type { SpotterConfig } from "../../src/core/types.ts";
 import type { Runtime } from "../../src/core/internal.ts";
-import { createRedactor } from "../../src/core/redact.ts";
+import { createRedactor, type Redactor } from "../../src/core/redact.ts";
+import type { RawCrumb } from "../../src/core/internal.ts";
 
 export interface TestRuntime extends Runtime {
-  crumbs: Breadcrumb[];
-  errors: ErrorEntry[];
+  /** Raw, as the signals push them: finish with `finalizeCrumbs(rt.crumbs, rt.redactor)`. */
+  crumbs: RawCrumb[];
+  errors: Pick<ErrorEntry, "type" | "message">[];
+  /** What the session redacts snapshots with. */
+  redactor: Redactor;
   navs: NavigationEntry[];
   faults: { signal: string; error: unknown }[];
   warnings: string[];
@@ -19,6 +23,7 @@ export function testRuntime(config: SpotterConfig = {}, clockStart = Date.UTC(20
   const clock = { t: clockStart };
   const rt: TestRuntime = {
     config,
+    redactor,
     sessionId: "sess-123",
     crumbs: [],
     errors: [],

@@ -1,14 +1,16 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { finalizeCrumbs } from "../../src/core/capture/finalize.ts";
 import {
   extractTraceparent,
   installNetwork,
   isSpotterUrl,
   noteNetworkActivity,
   onNetworkActivity,
-  urlMatches,
   type NetworkSignal,
 } from "../../src/core/capture/network.ts";
+import { urlMatches } from "../../src/core/capture/network-body.ts";
+import { harFrom } from "../../src/core/capture/network-har.ts";
 import { setUrl, testRuntime, type TestRuntime } from "./helpers.ts";
 
 const TP = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
@@ -80,6 +82,9 @@ afterEach(() => {
 });
 
 const flush = () => new Promise((r) => setTimeout(r, 10));
+/** The signal holds raw records; the session redacts them into a HAR at snapshot time. */
+const har = () => harFrom(sig?.snapshot() ?? [], rt.redactor);
+const crumbs = () => finalizeCrumbs(rt.crumbs, rt.redactor);
 
 describe("helpers", () => {
   it("recognises Spotter's own traffic", () => {
@@ -119,9 +124,9 @@ describe("fetch", () => {
     const res = await window.fetch("/api/orders?token=abc&page=2", { method: "post", body: '{"card":"4242424242424242"}', headers: { authorization: "Bearer x" } });
     expect(await res.json()).toEqual({ ok: true }); // host still gets its body
     await flush();
-    const har = sig.snapshot();
-    expect(har.log.version).toBe("1.2");
-    const [e] = har.log.entries;
+    const log = har();
+    expect(log.log.version).toBe("1.2");
+    const [e] = log.log.entries;
     expect(e?.request.method).toBe("POST");
     expect(e?.request.url).toBe("https://app.example.com/api/orders?token=[redacted]&page=2");
     expect(e?.request.queryString).toEqual([
@@ -155,9 +160,10 @@ describe("fetch", () => {
         headers: { "content-type": "application/json", "set-cookie": "sid=1", "x-request-id": "r-1" },
       });
     sig = installNetwork(rt, { max: 10, bodies: ["/api/*"], headers: ["content-type", "x-request-id", "authorization", "set-cookie"] });
+    await sig.ready; // body capture loads on demand
     await window.fetch("/api/users", { method: "POST", body: '{"password":"hunter2","email":"me@x.io"}', headers: { "content-type": "application/json", authorization: "Bearer abcdefghijk" } });
     await flush();
-    const [e] = sig.snapshot().log.entries;
+    const [e] = har().log.entries;
     expect(e?.request.headers.map((h) => h.name)).toEqual(["content-type"]);
     expect(e?.request.postData?.text).toBe('{"password":"[redacted:secret]","email":"[redacted:email]"}');
     expect(e?.response.headers).toEqual(expect.arrayContaining([{ name: "x-request-id", value: "r-1" }]));
@@ -176,11 +182,11 @@ describe("fetch", () => {
     };
     await expect(window.fetch("/api/down")).rejects.toThrow("Failed to fetch");
     await flush();
-    const entries = sig.snapshot().log.entries;
+    const entries = har().log.entries;
     expect(entries.map((e) => e.response.status)).toEqual([502, 0]);
     expect(entries[1]?._error).toBe("Failed to fetch");
-    const crumbs = rt.crumbs.filter((c) => c.category === "network");
-    expect(crumbs.map((c) => c.message)).toEqual(["POST /api/charge 502", "GET /api/down failed (Failed to fetch)"]);
+    const network = crumbs().filter((c) => c.category === "network");
+    expect(network.map((c) => c.message)).toEqual(["POST /api/charge 502", "GET /api/down failed (Failed to fetch)"]);
   });
 
   it("collects traceparents from requests and responses", async () => {
@@ -191,7 +197,7 @@ describe("fetch", () => {
     await window.fetch("/api/b");
     await flush();
     expect(sig.traceparents()).toEqual([TP, other]);
-    expect(sig.snapshot().log.entries[0]?._traceparent).toBe(TP);
+    expect(har().log.entries[0]?._traceparent).toBe(TP);
   });
 
   it("ignores Spotter's own requests entirely", async () => {
@@ -199,7 +205,7 @@ describe("fetch", () => {
     await window.fetch("/api/spotter/v1/reports", { method: "POST" });
     await window.fetch("https://ingest.example.net/custom/v1/events", { method: "POST" });
     await flush();
-    expect(sig.snapshot().log.entries).toEqual([]);
+    expect(har().log.entries).toEqual([]);
     expect(calls[0]?.[1]).toEqual({ method: "POST" }); // no session header added
   });
 
@@ -216,31 +222,51 @@ describe("fetch", () => {
     sig = installNetwork(rt, { max: 2, bodies: [], headers: [] });
     for (let i = 0; i < 5; i++) await window.fetch(`/api/${i}`);
     await flush();
-    expect(sig.snapshot().log.entries.map((e) => e.request.url)).toEqual(["https://app.example.com/api/3", "https://app.example.com/api/4"]);
+    expect(har().log.entries.map((e) => e.request.url)).toEqual(["https://app.example.com/api/3", "https://app.example.com/api/4"]);
   });
 });
 
 describe("XMLHttpRequest", () => {
-  it("records XHR with session header on same origin and failure crumbs", () => {
+  it("records XHR with session header on same origin and failure crumbs", async () => {
     sig = installNetwork(rt, { max: 10, bodies: ["/api/*"], headers: [] });
+    await sig.ready;
     const xhr = new window.XMLHttpRequest() as unknown as FakeXHR;
     xhr.open("GET", "/api/items?secret=s");
     xhr.send();
     expect(xhr.headers).toContainEqual(["x-spotter-session", "sess-123"]);
     xhr.respond(500, '{"error":"db"}', "content-type: application/json\r\ncontent-length: 14\r\n");
-    const [e] = sig.snapshot().log.entries;
+    const [e] = har().log.entries;
     expect(e?.request.url).toBe("https://app.example.com/api/items?secret=[redacted]");
     expect(e?.response.status).toBe(500);
     expect(e?.response.content.text).toBe('{"error":"db"}');
     expect(e?._initiator).toBe("xhr");
-    expect(rt.crumbs.at(-1)?.message).toBe("GET /api/items?secret=[redacted] 500");
+    expect(crumbs().at(-1)?.message).toBe("GET /api/items?secret=[redacted] 500");
 
     const cross = new window.XMLHttpRequest() as unknown as FakeXHR;
     cross.open("GET", "https://api.other.com/x");
     cross.send();
     expect(cross.headers).toEqual([]);
     cross.fail("timeout");
-    expect(sig.snapshot().log.entries[1]?._error).toBe("timeout");
+    expect(har().log.entries[1]?._error).toBe("timeout");
+  });
+
+  it("never holds auth/cookie headers, even allowlisted; URLs stay raw in memory until the HAR is built", () => {
+    sig = installNetwork(rt, { max: 10, bodies: [], headers: ["authorization", "cookie", "set-cookie", "proxy-authorization", "content-type", "x-request-id"] });
+    const xhr = new window.XMLHttpRequest() as unknown as FakeXHR;
+    xhr.open("GET", "/api/me?token=abc");
+    xhr.setRequestHeader("Authorization", "Bearer abcdefghijkl");
+    xhr.setRequestHeader("Cookie", "sid=1");
+    xhr.setRequestHeader("Proxy-Authorization", "Basic xx");
+    xhr.setRequestHeader("X-Request-Id", "req-1 a@b.co");
+    xhr.send();
+    xhr.respond(200, "{}", "content-type: application/json\r\nset-cookie: sid=2\r\n");
+    const [raw] = sig.snapshot();
+    expect(raw?.reqHeaders).toEqual([["X-Request-Id", "req-1 a@b.co"]]);
+    expect(raw?.resHeaders).toEqual([["content-type", "application/json"]]);
+    expect(raw?.url).toBe("https://app.example.com/api/me?token=abc");
+    const [e] = har().log.entries;
+    expect(e?.request.headers).toEqual([{ name: "X-Request-Id", value: "req-1 [redacted:email]" }]);
+    expect(e?.request.url).toBe("https://app.example.com/api/me?token=[redacted]");
   });
 
   it("unpatches the prototype on destroy", () => {
@@ -258,7 +284,7 @@ describe("sendBeacon", () => {
     sig = installNetwork(rt, { max: 10, bodies: [], headers: [] });
     expect(navigator.sendBeacon("/collect", "abc")).toBe(true);
     navigator.sendBeacon("/api/spotter/v1/events", "{}");
-    const entries = sig.snapshot().log.entries;
+    const entries = har().log.entries;
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ _initiator: "beacon", request: { method: "POST", bodySize: 3 } });
   });

@@ -424,7 +424,13 @@ export interface Transport {
   flags(batch: import("./schema.ts").FlagBatch): Promise<{ promoted: ReportReceipt[] }>;
   /** `beacon: true` on page hide: fire-and-forget via `sendBeacon`. */
   events(batch: import("./schema.ts").AnalyticsBatch, options?: { beacon?: boolean }): Promise<void>;
-  replaySegment(sessionId: string, seq: number, data: Uint8Array): Promise<void>;
+  /** `reason`: why the segment was uploaded (sampled session, an error, a flag); `user`: the identified user id. */
+  replaySegment(
+    sessionId: string,
+    seq: number,
+    data: Uint8Array,
+    meta?: { reason?: "sampled" | "on_error" | "flag"; user?: string },
+  ): Promise<void>;
 }
 
 // -- hooks (server-side only) -------------------------------------------------------------

@@ -42,7 +42,7 @@ export function forwardedHeaders(request: Request): Record<string, string> {
 }
 
 export const CORS_ALLOW_HEADERS =
-  "content-type, x-spotter-key, x-spotter-upload-token, x-spotter-content-type, x-spotter-session, authorization, traceparent";
+  "content-type, x-spotter-key, x-spotter-upload-token, x-spotter-content-type, x-spotter-session, x-spotter-sdk, x-spotter-features, x-spotter-mask, x-spotter-team-token, x-spotter-guest-token, authorization, traceparent";
 export const CORS_EXPOSE_HEADERS = "upload-offset, retry-after, x-spotter-request-id";
 
 /**

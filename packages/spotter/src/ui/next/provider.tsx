@@ -86,7 +86,9 @@ function resolveRoute(url: string): string | undefined {
   } catch {
     /* already a path */
   }
-  return routes?.matchRoutePattern(path, manifest()) ?? learnt.get(path);
+  if (!routes) return undefined;
+  // No dynamic pattern matched: a static route is its own pattern.
+  return routes.matchRoutePattern(path, manifest()) ?? learnt.get(path) ?? path;
 }
 
 export function SpotterProvider({ children, nonce, ...props }: SpotterProviderProps) {

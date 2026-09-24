@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "ब्राउज़र, डिवाइस और पेज का पता",
   "review.item.element": "चुना गया एलिमेंट",
   "review.item.recording": "आपकी स्क्रीन रिकॉर्डिंग",
+  "review.item.storage": "स्टोरेज कुंजियाँ (मानों के बिना)",
+  "review.item.errors": "त्रुटियाँ ({count})",
   "review.remove": "हटाएँ",
   "review.removed": "हटा दिया गया",
   "review.restore": "पूर्ववत करें",

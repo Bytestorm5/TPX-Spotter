@@ -37,7 +37,11 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
     viewport: { width: 1280, height: 800 },
     trace: "retain-on-failure",
-    launchOptions: { executablePath: chromium() },
+    launchOptions: {
+      executablePath: chromium(),
+      // Let getDisplayMedia() pick the current tab without a picker, for the screen-recording flow.
+      args: ["--auto-accept-this-tab-capture", "--auto-select-desktop-capture-source=Entire screen", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+    },
   },
   webServer: {
     command: process.env.SPOTTER_SKIP_BUILD ? "pnpm start" : "pnpm build && pnpm start",

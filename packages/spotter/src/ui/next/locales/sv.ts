@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Webbläsare, enhet och sidadress",
   "review.item.element": "Det valda elementet",
   "review.item.recording": "Din skärminspelning",
+  "review.item.storage": "Lagringsnycklar (utan värden)",
+  "review.item.errors": "Fel ({count})",
   "review.remove": "Ta bort",
   "review.removed": "Borttaget",
   "review.restore": "Ångra",

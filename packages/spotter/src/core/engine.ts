@@ -2,8 +2,11 @@
  * The engine: what loads on idle after `init()` in the browser (and on
  * first use on the server). It holds only what must run from the start —
  * the capture signals (errors, console, network, navigation, actions), the
- * shared breadcrumb buffer, redaction, and the switches for replay and
- * analytics — so "core once initialized" stays inside its 15 KB budget.
+ * shared breadcrumb buffer, and the switches for replay and analytics — so
+ * "core once initialized" stays inside its 15 KB budget. Signals hold raw,
+ * bounded records; redaction, serialization, stack parsing and HAR building
+ * run at snapshot time in the session chunk (nothing is sent before a
+ * snapshot).
  *
  * Everything that is only needed once the user engages or something is
  * filed — transport, the offline queue, flags, the report pipeline, the
@@ -15,36 +18,19 @@
  */
 import { installActions } from "./capture/actions.ts";
 import { installConsole } from "./capture/console.ts";
-import { errorEntryFrom, installErrors } from "./capture/errors.ts";
+import { installErrors, rawError, type RawError } from "./capture/errors.ts";
 import { installNavigation } from "./capture/navigation.ts";
 import { installNetwork } from "./capture/network.ts";
 import { RingBuffer } from "./buffer.ts";
 import { analyticsAllowed, replayAllowed } from "./consent.ts";
 import type { ResolvedConfig } from "./config.ts";
 import { devWarn } from "./dev.ts";
-import { FEATURE_ANALYTICS, FEATURE_REPLAY, type FeatureName } from "./features.ts";
-import { SDK_NAME, SDK_VERSION } from "./ids.ts";
-import type { ReplayController, Runtime, Signal } from "./internal.ts";
-import { createRedactor, type CustomRedactor, type Redactor } from "./redact.ts";
-import type { Breadcrumb, ErrorEntry, Json, RemoteConfig, ReleaseInfo, ReportReceipt, ReportStatusView, ReporterType, SdkInfo, SimilarIssue } from "./schema.ts";
+import { DEV, FEATURE_ANALYTICS, FEATURE_REPLAY, type FeatureName } from "./features.ts";
+import type { RawCrumb, ReplayController, Runtime, Signal } from "./internal.ts";
+import type { createRedactor, CustomRedactor, Redactor } from "./redact.ts";
+import type { Breadcrumb, ErrorEntry, Json, RemoteConfig, ReleaseInfo, ReporterType } from "./schema.ts";
 import type { Session } from "./session.ts";
-import type {
-  Attachment,
-  ConsentState,
-  DevDetails,
-  ExceptionContext,
-  FlagOptions,
-  IdentifyInput,
-  PreloadableFeature,
-  RecordingSession,
-  ReportInput,
-  RequestLike,
-  SpotterEvents,
-  SpotterState,
-  WidgetCapture,
-  WidgetCaptureOptions,
-  WidgetDraft,
-} from "./types.ts";
+import type { Attachment, ConsentState, DevDetails, FlagOptions, IdentifyInput, RequestLike, SpotterEvents, SpotterState } from "./types.ts";
 
 // Bundler defines, read inline at each guarded site: a `FEATURE_X` imported
 // from features.ts is only known after linking, too late for the bundler to
@@ -52,6 +38,7 @@ import type {
 // Written inline, `define` folds the condition while this file is parsed.
 declare const __SPOTTER_REPLAY__: boolean | undefined;
 declare const __SPOTTER_ANALYTICS__: boolean | undefined;
+declare const __SPOTTER_DEV__: boolean | undefined;
 
 /** Enrichment set through the client's API, shared with the engine by reference. */
 export interface Scope {
@@ -86,15 +73,16 @@ export interface EngineCore {
   readonly host: EngineHost;
   readonly browser: boolean;
   readonly runtime: Runtime;
-  readonly redactor: Redactor;
-  readonly earlyErrors: ErrorEntry[];
+  /** Install (once) and return the redactor; `rt.redact` / `rt.redactUrl` work from then on. */
+  useRedactor(make: typeof createRedactor): Redactor;
+  /** Raw, like every signal snapshot: finished by `capture/finalize.ts` / `stack.ts` at snapshot. */
+  readonly earlyErrors: RawError[];
   cfg(): ResolvedConfig;
-  crumbs(): Breadcrumb[];
+  crumbs(): RawCrumb[];
   snap<T>(name: string, fallback: T): T;
   signal(name: string): Signal<unknown> | undefined;
   install<T>(name: string, fn: () => Signal<T>): void;
   replay(): ReplayController | null;
-  sdk(): SdkInfo;
   release(): ReleaseInfo;
   routePattern(url?: string): string | undefined;
   reconfigure(): void;
@@ -104,25 +92,15 @@ export interface EngineCore {
 export interface Engine {
   readonly runtime: Runtime;
   start(): void;
-  /** Load (once) the session chunk. */
+  /** Load (once) the session chunk. Reports, the widget flow and the closed loop are called on it directly. */
   session(): Promise<Session>;
-  report(input: ReportInput, source?: "widget" | "api" | "flag" | "error" | "server"): Promise<ReportReceipt>;
-  captureException(error: unknown, context?: ExceptionContext): Promise<ReportReceipt | null>;
   flag(name: string, options?: FlagOptions, request?: RequestLike): void;
   flush(): Promise<void>;
   track(name: string, props?: Record<string, string | number | boolean>, revenue?: { value: number; currency: string }): void;
   pageview(url?: string, routePattern?: string): void;
   breadcrumb(crumb: Breadcrumb): void;
-  status(id: string): Promise<ReportStatusView | null>;
-  reply(id: string, body: string): Promise<ReportStatusView | null>;
-  similar(page?: { url?: string; selector?: string }): Promise<SimilarIssue[]>;
-  plusOne(id: string): Promise<number | null>;
-  captureForReport(options?: WidgetCaptureOptions): Promise<WidgetCapture>;
-  submitFromWidget(draft: WidgetDraft): Promise<ReportReceipt>;
   discardCapture(id: string): void;
   devDetails(captureId?: string): DevDetails | null;
-  preload(feature: PreloadableFeature): Promise<void>;
-  startRecording(options?: { mic?: boolean; maxMs?: number; onTick?: (ms: number) => void }): Promise<RecordingSession>;
   /** First interaction: remote config + offline queue. */
   engage(): Promise<void>;
   /** Re-evaluate features / consent (after remote config, a second init or setConsent). */
@@ -142,9 +120,12 @@ export function createEngine(host: EngineHost): Engine {
   const cfg = () => host.config();
   const browser = cfg().runtime === "browser";
   const scope = host.scope;
-  const redactor: Redactor = createRedactor(cfg().privacy ?? {}, () => scope.redactor);
-  const crumbs = new RingBuffer<Breadcrumb>(cfg().capture?.breadcrumbs ?? 100, 256 * 1024);
-  const earlyErrors: ErrorEntry[] = [];
+  // Redaction (and its regex set) arrives with the session chunk or with replay, whichever loads first:
+  // signals hold raw records until a snapshot, and nothing is sent before one.
+  let redactor: Redactor | null = null;
+  const useRedactor = (make: typeof createRedactor) => (redactor ??= make(cfg().privacy ?? {}, () => scope.redactor));
+  const crumbs = new RingBuffer<RawCrumb>(cfg().capture?.breadcrumbs ?? 100, 256 * 1024);
+  const earlyErrors: RawError[] = [];
   const signals = new Map<string, Signal<unknown>>();
   const cleanups: (() => void)[] = [];
   let replay: ReplayController | null = null;
@@ -178,8 +159,9 @@ export function createEngine(host: EngineHost): Engine {
     },
     sessionId: host.sessionId,
     now: () => Date.now(),
-    redact: (v, w) => redactor.redact(v, w),
-    redactUrl: (u) => redactor.redactUrl(u),
+    // Not loaded yet: mask entirely rather than let anything through unredacted.
+    redact: (v, w) => (redactor ? redactor.redact(v, w) : "[redacted]"),
+    redactUrl: (u) => (redactor ? redactor.redactUrl(u) : "[redacted]"),
     breadcrumb: (c) => crumbs.push(c),
     error(entry) {
       if (FEATURE_REPLAY && replay && replay.mode === "on_error") void replay.uploadSegment(`error:${entry.type}`).catch(() => {});
@@ -189,7 +171,7 @@ export function createEngine(host: EngineHost): Engine {
       if (FEATURE_ANALYTICS) analytics?.pageview(entry.to, entry.routePattern);
     },
     fault(name, error) {
-      devWarn(`${name} capture was disabled after an internal error: ${(error as Error)?.message ?? String(error)}`);
+      if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn(`${name} capture was disabled after an internal error: ${(error as Error)?.message ?? String(error)}`);
       const s = signals.get(name);
       signals.delete(name);
       try {
@@ -198,7 +180,9 @@ export function createEngine(host: EngineHost): Engine {
         /* already broken */
       }
     },
-    warn: (m) => devWarn(m.replace(/^\[spotter\]\s*/, "")),
+    warn(m) {
+      if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn(m.replace(/^\[spotter\]\s*/, ""));
+    },
     identity: () => (scope.user ? { id: scope.user.id, ...(scope.user.email ? { email: scope.user.email } : {}) } : null),
     flags: () => scope.flags,
     release,
@@ -230,7 +214,7 @@ export function createEngine(host: EngineHost): Engine {
     host,
     browser,
     runtime,
-    redactor,
+    useRedactor,
     earlyErrors,
     cfg,
     crumbs: () => crumbs.toArray(),
@@ -238,7 +222,6 @@ export function createEngine(host: EngineHost): Engine {
     signal: (n) => signals.get(n),
     install,
     replay: () => replay,
-    sdk: () => ({ name: SDK_NAME, version: SDK_VERSION, features: (Object.keys(cfg().features) as FeatureName[]).filter((f) => cfg().features[f]) }),
     release,
     routePattern,
     reconfigure: () => reconfigure(),
@@ -262,7 +245,7 @@ export function createEngine(host: EngineHost): Engine {
     for (const c of early.crumbs) crumbs.push(c);
     for (const e of early.errors) {
       try {
-        earlyErrors.push(errorEntryFrom(e.error, e.mechanism, (v, w) => redactor.redact(v, w), e.at));
+        earlyErrors.push(rawError(e.error, e.mechanism, e.at));
       } catch {
         /* unreadable */
       }
@@ -315,14 +298,16 @@ export function createEngine(host: EngineHost): Engine {
   }
 
   /** The `import()` sits inside the positive guard: code after an early return isn't dropped at parse time. */
+  let segmentReason: "on_error" | "flag" = "on_error";
   async function startReplayChunk(): Promise<void> {
     if ((typeof __SPOTTER_REPLAY__ === "boolean" ? __SPOTTER_REPLAY__ : true) && FEATURE_REPLAY) {
       try {
         const c = cfg();
         // Sampled mode: decided once per tab session (the session chunk owns the sampling rules).
         if (c.replayMode === "sampled" && !(await session()).sampledIn()) return;
-        const { startReplay } = await import("./replay/index.ts");
+        const { startReplay, createRedactor } = await import("./replay/index.ts");
         if (destroyed || replay) return;
+        useRedactor(createRedactor); // replay's error / upload markers are redacted as they are recorded
         replay = await startReplay(runtime, {
           mode: c.replayMode === "off" ? "buffer" : c.replayMode,
           windowSeconds: c.windowSeconds,
@@ -333,8 +318,20 @@ export function createEngine(host: EngineHost): Engine {
           recordMedia: c.replay?.recordMedia,
           recordIframes: c.replay?.recordIframes,
           beforeReplayEvent: c.beforeReplayEvent,
-          uploadSegment: (seq, data) => session().then((s) => s.transport.replaySegment(host.sessionId, seq, data)),
+          uploadSegment: (seq, data) =>
+            session().then((s) =>
+              s.transport.replaySegment(host.sessionId, seq, data, {
+                reason: c.replayMode === "sampled" ? "sampled" : segmentReason,
+                ...(runtime.identity()?.id ? { user: runtime.identity()!.id! } : {}),
+              }),
+            ),
         });
+        // Remember why the next segment goes up (`error:…` / `flag:…`) so the ingest files it under the right reason.
+        const upload = replay.uploadSegment.bind(replay);
+        replay.uploadSegment = (reason: string) => {
+          segmentReason = reason.startsWith("flag:") ? "flag" : "on_error";
+          return upload(reason);
+        };
         if (destroyed) replay.stop();
       } catch (error) {
         runtime.fault("replay", error);
@@ -366,8 +363,6 @@ export function createEngine(host: EngineHost): Engine {
     runtime,
     start,
     session,
-    report: (input, source) => via((s) => s.report(input, source)),
-    captureException: (error, context) => via((s) => s.captureException(error, context)),
     flag(name, options, request) {
       const at = Date.now();
       if (loaded) loaded.flag(name, options, request, at);
@@ -381,22 +376,14 @@ export function createEngine(host: EngineHost): Engine {
       if (!FEATURE_ANALYTICS) return;
       if (analytics) analytics.track(name, props, revenue);
       else if (!browser) void session().then((s) => s.trackServer(name, props, revenue));
-      else devWarn("track() was called while analytics is off (consent, GPC, remote config, or not started yet); the event was dropped.");
+      else if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn("track() was called while analytics is off (consent, GPC, remote config, or not started yet); the event was dropped.");
     },
     pageview(url, rp) {
       if (FEATURE_ANALYTICS) analytics?.pageview(url, rp);
     },
     breadcrumb: (c) => crumbs.push(c),
-    status: (id) => via((s) => s.status(id)),
-    reply: (id, body) => via((s) => s.reply(id, body)),
-    similar: (page) => via((s) => s.similar(page)),
-    plusOne: (id) => via((s) => s.plusOne(id)),
-    captureForReport: (options) => via((s) => s.captureForReport(options)),
-    submitFromWidget: (draft) => via((s) => s.submitFromWidget(draft)),
     discardCapture: (id) => loaded?.discardCapture(id),
     devDetails: (id) => loaded?.devDetails(id) ?? null,
-    preload: (feature) => via((s) => s.preload(feature)),
-    startRecording: (options) => via((s) => s.startRecording(options)),
     engage: () =>
       via(async (s) => {
         await s.fetchRemote();

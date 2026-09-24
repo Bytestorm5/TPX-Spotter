@@ -41,6 +41,8 @@ export interface StageProps {
   color: string;
   onColor: (c: string) => void;
   onAnnounce: (message: string) => void;
+  /** The reporter removed the screenshot in review: show it dimmed. */
+  removed?: boolean;
   /** Mobile only: the step's own actions. */
   footer?: ReactNode;
 }
@@ -49,7 +51,7 @@ export function Stage(props: StageProps) {
   const { t, part } = usePanel();
   const { image, history } = props;
   return (
-    <section {...part("stage", "sp-stage")} aria-label={t("annotate.title")}>
+    <section {...part("stage", "sp-stage")} aria-label={t("annotate.title")} data-removed={props.removed ? "" : undefined}>
       {props.annotate && image ? (
         <div {...part("toolbar", "sp-toolbar")} role="toolbar" aria-label={t("annotate.tools")}>
           <div className="sp-toolgroup">

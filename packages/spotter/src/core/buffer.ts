@@ -5,68 +5,82 @@
  * oldest entries drop first.
  */
 import type { Json } from "./schema.ts";
-import { byteSize } from "./serialize.ts";
 
 export class RingBuffer<T> {
   private items: T[] = [];
   private sizes: number[] = [];
-  /** Index of the oldest live item; compacted lazily so push is O(1) amortized. */
-  private start = 0;
-  private total = 0;
-  private readonly sizeOf: (t: T) => number;
+  /** Approximate bytes held. */
+  bytes = 0;
 
   constructor(
     readonly maxCount: number,
     readonly maxBytes: number,
-    sizeOf?: (t: T) => number,
-  ) {
-    this.sizeOf = sizeOf ?? ((t) => byteSize(t as unknown as Json));
-  }
+    private readonly sizeOf: (t: T) => number = (t) => byteSize(t as unknown as Json),
+  ) {}
 
   push(item: T): void {
     if (this.maxCount <= 0) return;
-    let size: number;
+    let size = 0;
     try {
       size = Math.max(0, this.sizeOf(item));
     } catch {
-      size = 0;
+      /* unmeasurable: count it as free */
     }
     // An entry bigger than the whole budget can never fit: drop it rather than evict everything.
     if (size > this.maxBytes) return;
     this.items.push(item);
     this.sizes.push(size);
-    this.total += size;
-    while (this.length > this.maxCount || this.total > this.maxBytes) this.dropOldest();
-    if (this.start > 64 && this.start * 2 > this.items.length) {
-      this.items = this.items.slice(this.start);
-      this.sizes = this.sizes.slice(this.start);
-      this.start = 0;
+    this.bytes += size;
+    // Buffers hold at most a few hundred entries: shifting is cheap enough.
+    while (this.items.length > this.maxCount || this.bytes > this.maxBytes) {
+      this.items.shift();
+      this.bytes -= this.sizes.shift() ?? 0;
     }
-  }
-
-  private dropOldest(): void {
-    this.total -= this.sizes[this.start] ?? 0;
-    (this.items as (T | undefined)[])[this.start] = undefined;
-    this.start++;
   }
 
   /** Oldest first. */
   toArray(): T[] {
-    return this.items.slice(this.start);
+    return this.items.slice();
   }
 
   clear(): void {
     this.items = [];
     this.sizes = [];
-    this.start = 0;
-    this.total = 0;
-  }
-
-  get bytes(): number {
-    return this.total;
+    this.bytes = 0;
   }
 
   get length(): number {
-    return this.items.length - this.start;
+    return this.items.length;
+  }
+}
+
+/** Truncate a string to `max` chars, appending a marker that says how much was cut. */
+export function truncate(value: string, max = 8192): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max)}…[truncated ${value.length - max} chars]`;
+}
+
+/** UTF-8 byte length of a string, without allocating an encoder. */
+export function utf8Length(s: string): number {
+  let bytes = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
+      bytes += 4;
+      i++;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+/** Approximate UTF-8 bytes of the JSON encoding of `value` — what it costs in a buffer or on the wire. */
+export function byteSize(value: Json): number {
+  try {
+    const s = JSON.stringify(value);
+    return s === undefined ? 0 : utf8Length(s);
+  } catch {
+    return 0;
   }
 }

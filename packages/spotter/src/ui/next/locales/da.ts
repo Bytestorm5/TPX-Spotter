@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Browser, enhed og sideadresse",
   "review.item.element": "Det valgte element",
   "review.item.recording": "Din skærmoptagelse",
+  "review.item.storage": "Lagringsnøgler (uden værdier)",
+  "review.item.errors": "Fejl ({count})",
   "review.remove": "Fjern",
   "review.removed": "Fjernet",
   "review.restore": "Fortryd",

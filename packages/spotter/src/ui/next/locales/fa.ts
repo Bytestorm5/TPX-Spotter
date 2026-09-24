@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "مرورگر، دستگاه و نشانی صفحه",
   "review.item.element": "عنصر انتخاب‌شده",
   "review.item.recording": "ضبط صفحهٔ شما",
+  "review.item.storage": "کلیدهای ذخیره‌سازی (بدون مقدار)",
+  "review.item.errors": "خطاها ({count})",
   "review.remove": "حذف",
   "review.removed": "حذف شد",
   "review.restore": "واگرد",

@@ -23,6 +23,8 @@ import { compressEvents } from "./compress.ts";
 import { checkoutInterval, clampWindowSeconds, estimateEventSize, ReplayWindow } from "./window.ts";
 
 export { deriveSignals } from "./signals.ts";
+/** Replay redacts its error / upload markers as it records: the engine installs the redactor from here when replay loads before the session chunk. */
+export { createRedactor } from "../redact.ts";
 
 export interface StartReplayOptions {
   mode: "buffer" | "on_error" | "sampled";

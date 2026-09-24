@@ -61,7 +61,7 @@ test.describe("appearance, isolation and locales", () => {
     await trigger(page).click();
     const d = dialog(page);
     await expect(d.getByRole("heading", { name: "الإبلاغ عن مشكلة" })).toBeVisible();
-    const dir = await page.evaluate(() => document.querySelector("[data-spotter-ui]")!.shadowRoot!.querySelector(".sp-root")!.getAttribute("dir"));
+    const dir = await page.evaluate(() => document.querySelector("body > div[data-spotter-ui]")!.shadowRoot!.querySelector(".sp-root")!.getAttribute("dir"));
     expect(dir).toBe("rtl");
     // Logical properties: the form column sits on the left in RTL.
     const side = (await d.locator("form.sp-side").boundingBox())!;
@@ -87,7 +87,7 @@ test.describe("appearance, isolation and locales", () => {
     const t = page.locator("[data-spotter-ui] .sp-trigger");
     await expect(t).toBeAttached({ timeout: 15_000 });
     const info = await page.evaluate(() => {
-      const host = document.querySelector("[data-spotter-ui]")!;
+      const host = document.querySelector("body > div[data-spotter-ui]")!;
       return {
         shadow: !!host.shadowRoot,
         styles: document.querySelectorAll("style[data-spotter-style]").length,
@@ -115,7 +115,7 @@ test.describe("appearance, isolation and locales", () => {
     expect(style.font).not.toBe("serif");
     const t = await trigger(page).evaluate((el) => getComputedStyle(el).paddingTop);
     expect(t).not.toBe("40px");
-    const hostMargin = await page.evaluate(() => getComputedStyle(document.querySelector("[data-spotter-ui]")!).marginTop);
+    const hostMargin = await page.evaluate(() => getComputedStyle(document.querySelector("body > div[data-spotter-ui]")!).marginTop);
     expect(hostMargin).toBe("0px");
     await shot(page, "30-isolation");
   });

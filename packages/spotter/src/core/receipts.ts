@@ -7,29 +7,9 @@
  */
 import type { PublicStatus, ReportReceipt } from "./schema.ts";
 import type { StoredReport } from "./types.ts";
+import { KEY, memory, read, storedReports, type Stored } from "./stored-reports.ts";
 
-const KEY = "spotter:reports";
 const MAX = 50;
-
-interface Stored {
-  v: 1;
-  reports: (StoredReport & { token: string })[];
-  /** Provisional (queued) id → real id once delivered. */
-  aliases: Record<string, string>;
-}
-
-const memory: Stored = { v: 1, reports: [], aliases: {} };
-
-function read(): Stored {
-  try {
-    const raw = globalThis.localStorage?.getItem(KEY);
-    if (!raw) return memory.reports.length ? memory : { v: 1, reports: [], aliases: {} };
-    const parsed = JSON.parse(raw) as Stored;
-    return parsed?.v === 1 && Array.isArray(parsed.reports) ? { ...parsed, aliases: parsed.aliases ?? {} } : { v: 1, reports: [], aliases: {} };
-  } catch {
-    return memory;
-  }
-}
 
 function write(s: Stored): void {
   s.reports = s.reports.slice(0, MAX);
@@ -87,6 +67,4 @@ export function noteStatus(id: string, status: PublicStatus): boolean {
   return true;
 }
 
-export function storedReports(): StoredReport[] {
-  return read().reports.map(({ token: _t, ...r }) => r);
-}
+export { storedReports };

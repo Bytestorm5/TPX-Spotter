@@ -5,6 +5,9 @@
  * PII; `setRedactor` adds a custom pass on top. Masking happens in the
  * browser, before upload — unmasked data never reaches an ingest.
  *
+ * Header allowlisting (and the never-captured Authorization / Cookie set) is
+ * applied at capture time, in `capture/network.ts`.
+ *
  * Replacement tokens are `[redacted:<kind>]` so a reader of the ticket can see
  * that something was there and what it was, without seeing it.
  */
@@ -16,17 +19,10 @@ export type CustomRedactor = (value: string, where: RedactionSite) => string;
 export interface Redactor {
   redact(value: string, where: RedactionSite): string;
   redactUrl(url: string): string;
+  /** Free text that may embed URLs (breadcrumb messages): strip sensitive `?query` parameters, then redact. */
+  redactMessage(text: string, where: RedactionSite): string;
   redactJson(value: Json, where: RedactionSite): Json;
-  redactHeaders(headers: [string, string][], allow: string[]): { name: string; value: string }[];
 }
-
-/** Headers that are never captured, whatever the allowlist says. */
-export const NEVER_CAPTURED_HEADERS: ReadonlySet<string> = new Set([
-  "authorization",
-  "cookie",
-  "set-cookie",
-  "proxy-authorization",
-]);
 
 /** Query parameter names (or name parts, e.g. `X-Amz-Signature`, `authToken`) that are stripped from URLs. */
 export const SENSITIVE_QUERY_PARAMS: readonly string[] = [
@@ -283,16 +279,13 @@ export function createRedactor(privacy: PrivacyConfig, custom?: () => CustomReda
     }
   };
 
-  const redactHeaders = (headers: [string, string][], allow: string[]): { name: string; value: string }[] => {
-    const allowed = new Set(allow.map((h) => h.toLowerCase()));
-    const out: { name: string; value: string }[] = [];
-    for (const [name, value] of headers) {
-      const lower = name.toLowerCase();
-      if (NEVER_CAPTURED_HEADERS.has(lower) || !allowed.has(lower)) continue;
-      out.push({ name, value: redact(String(value), "network") });
+  const redactMessage = (text: string, where: RedactionSite): string => {
+    try {
+      return redact(text.replace(/\?[^\s#"'<>]*/g, (q) => `?${stripParams(q.slice(1), isSensitiveParam)}`), where);
+    } catch {
+      return MARK("unscrubbable");
     }
-    return out;
   };
 
-  return { redact, redactUrl, redactJson, redactHeaders };
+  return { redact, redactUrl, redactMessage, redactJson };
 }

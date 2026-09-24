@@ -7,6 +7,12 @@
  * `Signal`: it patches what it needs, keeps a bounded buffer, snapshots on
  * demand and undoes every patch on `destroy()`. A module never throws into
  * the host: a fault inside it disables that signal (`rt.fault(name, error)`).
+ *
+ * Signals loaded at init hold raw records; redaction, serialization and
+ * formatting happen at snapshot time in the session chunk
+ * (`capture/finalize.ts`, `network-har.ts`, `stack.ts`), before anything is
+ * sent. `rt.redact` / `rt.redactUrl` work once the redaction module has
+ * loaded (with the session chunk, or with replay).
  */
 import type { Breadcrumb, ErrorEntry, Json, NavigationEntry, ReleaseInfo } from "./schema.ts";
 import type { RedactionSite, SpotterConfig } from "./types.ts";
@@ -20,10 +26,10 @@ export interface Runtime {
   redact(value: string, where: RedactionSite): string;
   /** Strip sensitive query parameters and redact a URL. */
   redactUrl(url: string): string;
-  /** Record a breadcrumb in the shared timeline buffer. */
-  breadcrumb(crumb: Breadcrumb): void;
-  /** Tell the client an error was captured (drives on-error replay upload, auto-flags). */
-  error(entry: ErrorEntry): void;
+  /** Record a breadcrumb in the shared timeline buffer (held raw, finished at snapshot). */
+  breadcrumb(crumb: RawCrumb): void;
+  /** Tell the client an error was captured (drives on-error replay upload, auto-flags). Unredacted. */
+  error(entry: Pick<ErrorEntry, "type" | "message">): void;
   /** Tell the client the route changed (analytics pageview, navigation history). */
   navigated(entry: NavigationEntry): void;
   /** A capture module faulted; the client disables it and warns in dev. */
@@ -39,6 +45,19 @@ export interface Runtime {
   /** Route pattern for the current URL, when a framework integration knows it. */
   routePattern(url?: string): string | undefined;
 }
+
+/** Stands in for a label in a raw crumb's message; replaced by the redacted, 60-char `label` at snapshot. */
+export const LABEL = "\u0001";
+
+/**
+ * A breadcrumb as held in the buffer. At snapshot (`finalizeCrumbs`) its
+ * message has sensitive query parameters stripped and is redacted; `value`
+ * (a console argument copy) is serialized into the message when there is
+ * none; `label` is redacted, capped at 60 chars and substituted for `LABEL`;
+ * the message is capped at `max` chars; `data.url` / `to` / `from` go through
+ * URL redaction and other data through JSON redaction.
+ */
+export type RawCrumb = Breadcrumb & { label?: string; value?: unknown; max?: number };
 
 export interface Signal<TSnapshot = unknown> {
   readonly name: string;

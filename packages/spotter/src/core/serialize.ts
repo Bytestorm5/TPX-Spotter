@@ -8,6 +8,10 @@
  * a hostile value break the host (or blow the memory budget).
  */
 import type { Json } from "./schema.ts";
+import { truncate } from "./buffer.ts";
+
+// Bounding helpers live in buffer.ts (they load at init with the capture buffers).
+export { byteSize, truncate, utf8Length } from "./buffer.ts";
 
 export interface SerializeOptions {
   /** Strings longer than this are truncated with a marker. Default 8192 (8 KB). */
@@ -22,11 +26,6 @@ export interface SerializeOptions {
 
 const DEFAULTS = { maxString: 8192, maxDepth: 6, maxKeys: 100, maxNodes: 2000 };
 
-/** Truncate a string to `max` chars, appending a marker that says how much was cut. */
-export function truncate(value: string, max: number = DEFAULTS.maxString): string {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max)}…[truncated ${value.length - max} chars]`;
-}
 
 /** `<div#id.a.b>` — enough to recognise a node without dumping the DOM. */
 export function describeNode(node: unknown): string {
@@ -237,29 +236,4 @@ export function mapStrings(value: Json, fn: (s: string) => string): Json {
   const out: { [k: string]: Json } = {};
   for (const key of Object.keys(value)) out[key] = mapStrings(value[key] as Json, fn);
   return out;
-}
-
-/** UTF-8 byte length of a string, without allocating an encoder. */
-export function utf8Length(s: string): number {
-  let bytes = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c < 0x80) bytes += 1;
-    else if (c < 0x800) bytes += 2;
-    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
-      bytes += 4;
-      i++;
-    } else bytes += 3;
-  }
-  return bytes;
-}
-
-/** Approximate UTF-8 bytes of the JSON encoding of `value` — what it costs in a buffer or on the wire. */
-export function byteSize(value: Json): number {
-  try {
-    const s = JSON.stringify(value);
-    return s === undefined ? 0 : utf8Length(s);
-  } catch {
-    return 0;
-  }
 }

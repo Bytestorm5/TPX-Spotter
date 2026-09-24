@@ -45,7 +45,7 @@ export interface TestTransport extends Transport {
   readonly recorded: { reports: ReportSubmission[]; flags: FlagOccurrence[]; events: AnalyticsEvent[]; uploads: RecordedUpload[] };
   /** Report ids whose `complete` was called. */
   readonly completed: string[];
-  readonly replaySegments: { sessionId: string; seq: number; size: number }[];
+  readonly replaySegments: { sessionId: string; seq: number; size: number; reason?: string }[];
   readonly replies: { id: string; body: string }[];
   /** Resolves with the first report (already sent or future) that matches. */
   waitForReport(match?: (r: ReportSubmission) => boolean, timeoutMs?: number): Promise<ReportSubmission>;
@@ -73,7 +73,7 @@ export function createTestTransport(options: { remoteConfig?: RemoteConfig | nul
   const events: AnalyticsEvent[] = [];
   const uploads: RecordedUpload[] = [];
   const completed: string[] = [];
-  const replaySegments: { sessionId: string; seq: number; size: number }[] = [];
+  const replaySegments: { sessionId: string; seq: number; size: number; reason?: string }[] = [];
   const replies: { id: string; body: string }[] = [];
   const statuses = new Map<string, ReportStatusView>();
   const byClientId = new Map<string, ReportReceipt>();
@@ -209,9 +209,9 @@ export function createTestTransport(options: { remoteConfig?: RemoteConfig | nul
       events.push(...batch.events);
       notify();
     },
-    async replaySegment(sessionId, s, data) {
+    async replaySegment(sessionId, s, data, meta) {
       maybeFail("replaySegment");
-      replaySegments.push({ sessionId, seq: s, size: data.byteLength });
+      replaySegments.push({ sessionId, seq: s, size: data.byteLength, ...(meta?.reason ? { reason: meta.reason } : {}) });
       notify();
     },
     waitForReport(match = () => true, timeoutMs = 5000) {

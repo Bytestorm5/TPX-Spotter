@@ -1,17 +1,29 @@
 /**
  * Console capture: patches `log`, `info`, `warn`, `error` and `debug`
- * reversibly and keeps the last N entries (count- and byte-bounded), with
- * arguments serialized safely and redacted.
+ * reversibly and keeps the last N entries (count- and byte-bounded). At call
+ * time each argument gets a cheap bounded copy (`copyValue`), so later
+ * mutation doesn't change the record; safe serialization and redaction run
+ * at snapshot time (`finalizeConsole`, session chunk), before anything is
+ * sent.
  *
  * Spotter never captures itself: a re-entrancy guard stops recursion if
  * anything we call logs, and `runUncaptured()` lets the client emit its own
  * dev warnings without them landing in reports.
  */
-import type { ConsoleEntry, ConsoleLevel, Json } from "../schema.ts";
+import type { ConsoleLevel } from "../schema.ts";
 import type { Runtime, Signal } from "../internal.ts";
-import { RingBuffer } from "../buffer.ts";
-import { mapStrings, safeSerialize, truncate } from "../serialize.ts";
-import { iso, patchMethod } from "./util.ts";
+import { RingBuffer, truncate } from "../buffer.ts";
+import { copyValue, iso, patchMethod } from "./util.ts";
+
+/** A console call as held: argument copies, serialized and redacted at snapshot. */
+export interface RawConsoleEntry {
+  level: ConsoleLevel;
+  at: string;
+  args: unknown[];
+  stack?: string;
+  /** Approximate bytes, for the buffer bound. */
+  size: number;
+}
 
 const LEVELS: readonly ConsoleLevel[] = ["log", "info", "warn", "error", "debug"];
 const MAX_BYTES = 256 * 1024;
@@ -31,8 +43,8 @@ export function runUncaptured<T>(fn: () => T): T {
 /** Messages Spotter itself prints are prefixed; never capture them even if they bypass `runUncaptured`. */
 const OWN_PREFIX = /^\[(?:spotter|Spotter|@trusplex\/spotter)\]/;
 
-export function installConsole(rt: Runtime, opts: { max: number }): Signal<ConsoleEntry[]> {
-  const buffer = new RingBuffer<ConsoleEntry>(Math.max(0, opts.max), MAX_BYTES);
+export function installConsole(rt: Runtime, opts: { max: number }): Signal<RawConsoleEntry[]> {
+  const buffer = new RingBuffer<RawConsoleEntry>(Math.max(0, opts.max), MAX_BYTES, (e) => e.size);
   const undo: (() => void)[] = [];
   let active = true;
   let inside = false;
@@ -40,23 +52,27 @@ export function installConsole(rt: Runtime, opts: { max: number }): Signal<Conso
 
   const record = (level: ConsoleLevel, args: unknown[]) => {
     if (typeof args[0] === "string" && OWN_PREFIX.test(args[0])) return;
-    const serialized: Json[] = args.slice(0, 20).map((a) => mapStrings(safeSerialize(a), (s) => rt.redact(s, "console")));
-    const entry: ConsoleEntry = { level, at: iso(rt.now()), args: serialized };
+    const size = { n: 0 };
+    const copies = args.slice(0, 20).map((a) => copyValue(a, size));
+    const entry: RawConsoleEntry = { level, at: iso(rt.now()), args: copies, size: size.n };
     if (level === "warn" || level === "error") {
       const stack = new Error().stack;
       if (stack) {
         // Drop the "Error" line and our own two frames (record + wrapper).
         const lines = stack.split("\n");
         const start = /^\s*at |@/.test(lines[0] ?? "") ? 2 : 3;
-        entry.stack = rt.redact(truncate(lines.slice(start).join("\n"), 4096), "console");
+        entry.stack = truncate(lines.slice(start).join("\n"), 4096);
+        entry.size += entry.stack.length;
       }
-      const first = serialized[0];
-      const message = typeof first === "string" ? first : JSON.stringify(first ?? "");
+      const first = copies[0];
+      // Redacted (and a non-string argument serialized), then capped at 200 chars, at snapshot time.
       rt.breadcrumb({
         at: entry.at,
         category: "console",
         level: level === "error" ? "error" : "warning",
-        message: truncate(message ?? "", 200),
+        message: typeof first === "string" ? truncate(first, 1000) : "",
+        ...(typeof first === "string" ? {} : { value: first }),
+        max: 200,
       });
     }
     buffer.push(entry);
@@ -74,11 +90,7 @@ export function installConsole(rt: Runtime, opts: { max: number }): Signal<Conso
                 record(level, args);
               } catch (error) {
                 active = false;
-                try {
-                  rt.fault("console", error);
-                } catch {
-                  /* never throw into the host */
-                }
+                rt.fault("console", error); // the engine's fault() never throws
               } finally {
                 inside = false;
               }

@@ -73,6 +73,8 @@ const messages: Messages = {
   "review.item.environment": "Trình duyệt, thiết bị và địa chỉ trang",
   "review.item.element": "Phần tử đã chọn",
   "review.item.recording": "Bản quay màn hình của bạn",
+  "review.item.storage": "Khóa lưu trữ (không kèm giá trị)",
+  "review.item.errors": "Lỗi ({count})",
   "review.remove": "Xóa",
   "review.removed": "Đã xóa",
   "review.restore": "Hoàn tác",

@@ -95,7 +95,7 @@ describe("in Node (no DOM)", () => {
       installActions(rt),
       installPerformance(rt, { slowResourceMs: 1000 }),
     ];
-    expect(sigs[2]?.snapshot()).toMatchObject({ log: { version: "1.2", entries: [] } });
+    expect(sigs[2]?.snapshot()).toEqual([]);
     expect(sigs[3]?.snapshot()).toEqual({ entries: [], history: [] });
     expect(sigs[5]?.snapshot()).toEqual({ longTasks: [], slowResources: [] });
     expect(collectStorage(rt, [])).toEqual({ localStorage: [], sessionStorage: [], cookies: [] });

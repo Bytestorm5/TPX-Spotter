@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { installConsole, runUncaptured } from "../../src/core/capture/console.ts";
-import { errorEntryFrom, installErrors, parseStack } from "../../src/core/capture/errors.ts";
+import { installErrors } from "../../src/core/capture/errors.ts";
+import { finalizeConsole, finalizeCrumbs } from "../../src/core/capture/finalize.ts";
+import { errorEntryFrom, finalizeError, parseStack } from "../../src/core/capture/stack.ts";
+import { LABEL } from "../../src/core/internal.ts";
 import { testRuntime } from "./helpers.ts";
 
 const cleanups: (() => void)[] = [];
@@ -17,9 +20,12 @@ describe("installConsole", () => {
     console.log = spy;
     try {
       const sig = installConsole(rt, { max: 10 });
-      console.log("user", { email: "a@b.co", n: 1 });
+      const arg = { email: "a@b.co", n: 1 };
+      console.log("user", arg);
       expect(spy).toHaveBeenCalledWith("user", { email: "a@b.co", n: 1 }); // host output untouched
-      const [entry] = sig.snapshot();
+      arg.n = 2; // copied at call time: a later mutation doesn't change the record
+      // Held raw; serialized and redacted at snapshot time.
+      const [entry] = finalizeConsole(sig.snapshot(), rt.redactor);
       expect(entry?.level).toBe("log");
       expect(entry?.args).toEqual(["user", { email: "[redacted:email]", n: 1 }]);
       expect(entry?.stack).toBeUndefined();
@@ -102,8 +108,8 @@ describe("installConsole", () => {
 
   it("faults (and disables) instead of throwing into the host", () => {
     const rt = testRuntime();
-    rt.redact = () => {
-      throw new Error("redactor broke");
+    rt.now = () => {
+      throw new Error("clock broke");
     };
     const original = console.log;
     const spy = vi.fn();
@@ -225,5 +231,43 @@ describe("installErrors", () => {
     document.body.appendChild(img);
     img.dispatchEvent(new Event("error"));
     expect(sig.snapshot()).toEqual([]);
+  });
+});
+
+describe("snapshot-time finishing", () => {
+  it("serializes and redacts raw errors, from a copy taken when they were thrown", () => {
+    const rt = testRuntime();
+    const sig = installErrors(rt);
+    cleanups.push(() => sig.destroy());
+    const thrown = { user: "a@b.co" };
+    const rejection = new Event("unhandledrejection") as Event & { reason?: unknown };
+    rejection.reason = thrown;
+    window.dispatchEvent(rejection);
+    thrown.user = "changed later";
+    window.dispatchEvent(new ErrorEvent("error", { error: new Error("for a@b.co"), message: "for a@b.co" }));
+    const [a, b] = sig.snapshot().map((e) => finalizeError(e, rt.redactor.redact));
+    expect(a?.message).toBe('Non-Error thrown: {"user":"[redacted:email]"}');
+    expect(b?.message).toBe("for [redacted:email]");
+    expect(b?.stack).not.toContain("a@b.co");
+    expect(b?.frames.length).toBeGreaterThan(0);
+  });
+
+  it("finishes raw breadcrumbs: serialized console args, caps, redacted labels and URLs", () => {
+    const rt = testRuntime();
+    const [con, err, click, net] = finalizeCrumbs(
+      [
+        { at: "t", category: "console", level: "warning", message: "", value: { card: "4111 1111 1111 1111" }, max: 200 },
+        { at: "t", category: "error", level: "error", message: `Error: ${"x".repeat(500)}`, max: 200 },
+        { at: "t", category: "click", message: `Clicked "${LABEL}"`, label: `mail jane@x.io ${"y".repeat(100)}`, selector: "#b" },
+        { at: "t", category: "network", message: "GET /api?token=abc 500", data: { url: "https://a.com/api?token=abc", status: 500 } },
+      ],
+      rt.redactor,
+    );
+    expect(con?.message).toBe('{"card":"[redacted:card]"}');
+    expect(con).not.toHaveProperty("value");
+    expect(err?.message.startsWith(`Error: ${"x".repeat(193)}…[truncated`)).toBe(true);
+    expect(click?.message).toMatch(/^Clicked "mail \[redacted:email\] y+…\[truncated \d+ chars\]"$/);
+    expect(click).not.toHaveProperty("label");
+    expect(net).toMatchObject({ message: "GET /api?token=[redacted] 500", data: { url: "https://a.com/api?token=[redacted]", status: 500 } });
   });
 });

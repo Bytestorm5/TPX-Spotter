@@ -113,6 +113,8 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
   const [announce, setAnnounce] = useState("");
   const [alert, setAlert] = useState("");
   const descRef = useRef<HTMLTextAreaElement>(null);
+  // Side by side (wide screens) the reporter starts typing; on phones annotate is its own first step.
+  const wide = typeof matchMedia === "function" && matchMedia("(min-width: 721px)").matches;
 
   const identity = bridge.identity();
   const identified = !!identity;
@@ -189,6 +191,20 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
   const hasShot = !!image && includeShot;
   const split = shotExpected && !shotFailed && includeShot && (view === "describe" || view === "review" || view === "similar");
   const close = () => closeFlow();
+
+  // Each view change moves focus into the new view (its [data-autofocus], else its first control),
+  // so keyboard and screen-reader users never end up on <body> after a step.
+  useEffect(() => {
+    const dlg = peekUiRoot()?.container.querySelector<HTMLElement>("[role=dialog][data-spotter-part=dialog]");
+    if (!dlg) return;
+    const active = dlg.getRootNode() instanceof ShadowRoot ? (dlg.getRootNode() as ShadowRoot).activeElement : document.activeElement;
+    if (active && dlg.contains(active) && view === "describe" && step === "describe") return;
+    const target =
+      dlg.querySelector<HTMLElement>(`[data-view] [data-autofocus], [data-autofocus]`) ??
+      dlg.querySelector<HTMLElement>(".sp-side button, .sp-side textarea, .sp-side input, .sp-done button");
+    target?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, step]);
 
   // -- recapture / picker / recording ---------------------------------------------------------
 
@@ -396,7 +412,7 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
             id="sp-desc"
             ref={descRef}
             {...part("textarea", "sp-textarea")}
-            data-autofocus={!split || step === "describe" ? "" : undefined}
+            data-autofocus={!split || step === "describe" || wide ? "" : undefined}
             required
             aria-required="true"
             aria-invalid={errors.description ? true : undefined}
@@ -412,9 +428,6 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
             onChange={(e) => {
               setDescription(e.target.value);
               if (errors.description) setErrors(({ description: _, ...rest }) => rest);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void onSend();
             }}
           />
           {errors.description ? (
@@ -591,21 +604,40 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
     </form>
   );
 
-  let body;
+  const stage = split ? (
+    <Stage
+      image={image}
+      failed={shotFailed}
+      annotate={annotateOn}
+      history={history}
+      onHistory={setHistory}
+      tool={tool}
+      onTool={setTool}
+      color={color}
+      onColor={setColor}
+      onAnnounce={setAnnounce}
+      removed={include.screenshot === false}
+      footer={
+        view === "describe" ? (
+          <div className="sp-actions sp-mobile-only">
+            <div className="sp-actions-row">
+              <button type="button" className="sp-btn sp-btn-primary" onClick={() => setStep("describe")}>
+                {t("annotate.continue")}
+              </button>
+            </div>
+          </div>
+        ) : null
+      }
+    />
+  ) : null;
+
+  let side;
   if (view === "sent" && snap.receipt) {
-    body = <SentView receipt={snap.receipt} team={team} hasContact={identified || !!email.trim()} onDone={close} />;
+    side = <SentView receipt={snap.receipt} team={team} hasContact={identified || !!email.trim()} onDone={close} />;
   } else if (view === "recording-setup") {
-    body = (
-      <RecordingSetup
-        onStart={async (mic) => {
-          const session = await startRecording(mic);
-          return session;
-        }}
-        onSkip={() => setView("describe")}
-      />
-    );
+    side = <RecordingSetup onStart={(mic) => startRecording(mic)} onSkip={() => setView("describe")} />;
   } else if (view === "review") {
-    body = (
+    side = (
       <ReviewList
         capture={capture}
         hasShot={hasShot}
@@ -620,37 +652,19 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
       />
     );
   } else if (view === "similar" && similar) {
-    body = <SimilarList items={similar} busy={busy} onContinue={() => void submit()} onDone={close} />;
+    side = <SimilarList items={similar} busy={busy} onContinue={() => void submit()} onDone={close} />;
   } else {
-    body = split ? (
-      <div className="sp-body">
-        <Stage
-          image={image}
-          failed={shotFailed}
-          annotate={annotateOn}
-          history={history}
-          onHistory={setHistory}
-          tool={tool}
-          onTool={setTool}
-          color={color}
-          onColor={setColor}
-          onAnnounce={setAnnounce}
-          footer={
-            <div className="sp-actions sp-mobile-only">
-              <div className="sp-actions-row">
-                <button type="button" className="sp-btn sp-btn-primary" onClick={() => setStep("describe")}>
-                  {t("annotate.continue")}
-                </button>
-              </div>
-            </div>
-          }
-        />
-        {describe}
-      </div>
-    ) : (
-      describe
-    );
+    side = describe;
   }
+  // Wide layouts keep the screenshot beside every step up to sending, so the reporter always sees what they're describing.
+  const body = stage ? (
+    <div className="sp-body">
+      {stage}
+      {side}
+    </div>
+  ) : (
+    side
+  );
 
   const header = (
     <header {...part("header", "sp-header")} data-back={back ? "" : undefined}>
@@ -673,7 +687,7 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
     poweredBy || (teamSignIn && !team) ? (
       <footer {...part("footer", "sp-footer")}>
         <span className="sp-footer-start">
-          {poweredBy && (view !== "describe" || !split || true) ? (
+          {poweredBy ? (
             <a {...part("poweredBy")} href={`https://trusplex.com/spotter?ref=${encodeURIComponent(projectRef(config.project))}`} target="_blank" rel="noopener">
               {t("panel.poweredBy")}
             </a>
@@ -705,6 +719,13 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
         data-step={split ? step : undefined}
         data-view={view}
         hidden={overlay === "recording"}
+        onKeyDown={(e) => {
+          // ⌘/Ctrl+Enter sends from anywhere in the panel, not only the description.
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && view === "describe") {
+            e.preventDefault();
+            void onSend();
+          }
+        }}
       >
         {testMode ? (
           <div className="sp-ribbon" {...part("ribbon", "sp-ribbon")}>

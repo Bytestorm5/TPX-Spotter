@@ -74,6 +74,8 @@ const messages: Messages = {
   "review.item.environment": "Nettleser, enhet og sideadresse",
   "review.item.element": "Det valgte elementet",
   "review.item.recording": "Skjermopptaket ditt",
+  "review.item.storage": "Lagringsnøkler (uten verdier)",
+  "review.item.errors": "Feil ({count})",
   "review.remove": "Fjern",
   "review.removed": "Fjernet",
   "review.restore": "Angre",

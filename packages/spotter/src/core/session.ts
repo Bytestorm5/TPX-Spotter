@@ -11,9 +11,13 @@
  *   uploads → complete.
  */
 import { collectEnvironment } from "./capture/environment.ts";
-import { errorEntryFrom } from "./capture/errors.ts";
+import type { RawConsoleEntry } from "./capture/console.ts";
+import type { RawError } from "./capture/errors.ts";
+import { finalizeConsole, finalizeCrumbs, finalizeNavigation } from "./capture/finalize.ts";
 import type { NavigationSnapshot } from "./capture/navigation.ts";
-import type { NetworkSignal } from "./capture/network.ts";
+import type { NetworkSignal, RawRequest } from "./capture/network.ts";
+import { emptyHar, harFrom } from "./capture/network-har.ts";
+import { errorEntryFrom, finalizeError } from "./capture/stack.ts";
 import { collectPage, domSnapshot } from "./capture/page.ts";
 import { installPerformance, type PerformanceSignal } from "./capture/performance.ts";
 import { collectStorage } from "./capture/storage.ts";
@@ -21,12 +25,13 @@ import type { ResolvedConfig } from "./config.ts";
 import { devWarn } from "./dev.ts";
 import type { EngineCore } from "./engine.ts";
 import { SpotterDroppedError } from "./errors.ts";
-import { FEATURE_ANNOTATE, FEATURE_FLAGS, FEATURE_RECORDING, FEATURE_REPLAY, FEATURE_SCREENSHOT } from "./features.ts";
+import { FEATURE_ANNOTATE, FEATURE_FLAGS, FEATURE_RECORDING, FEATURE_REPLAY, FEATURE_SCREENSHOT, type FeatureName } from "./features.ts";
 import { deriveFingerprint } from "./fingerprint.ts";
 import { createFlagger, type Flagger } from "./flags.ts";
 import { iso, isPendingId, pendingRef, randomId, SDK_NAME, SDK_VERSION, shortId } from "./ids.ts";
 import type { ScreenshotResult } from "./internal.ts";
 import { lookupReport, noteStatus, rememberReport, resolvePending } from "./receipts.ts";
+import { createRedactor } from "./redact.ts";
 import { applyRemoteConfig, replaySampleRate } from "./remote-config.ts";
 import {
   REPORT_SCHEMA_ID,
@@ -42,6 +47,7 @@ import {
   type ReportReceipt,
   type ReportStatusView,
   type ReportSubmission,
+  type SdkInfo,
   type SimilarIssue,
   type StorageSnapshot,
 } from "./schema.ts";
@@ -154,10 +160,6 @@ function header(req: RequestLike | undefined, name: string): string | undefined 
   return Array.isArray(v) ? v[0] : v;
 }
 
-function emptyHar(): Har {
-  return { log: { version: "1.2", creator: { name: SDK_NAME, version: SDK_VERSION }, entries: [] } };
-}
-
 function safeName(name: string, taken: Set<string>): string {
   const base = name.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._]+/, "").slice(0, 80) || "attachment";
   let n = base;
@@ -173,11 +175,27 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | undefined> {
 const byteSize = (data: Blob | Uint8Array) => (data instanceof Uint8Array ? data.byteLength : data.size);
 
 export function createSession(core: EngineCore): Session {
-  const { host, browser, redactor } = core;
+  const { host, browser } = core;
+  const redactor = core.useRedactor(createRedactor);
   const cfg = core.cfg;
   const scope = host.scope;
   const transport: Transport =
-    cfg().transport ?? createHttpTransport({ endpoint: cfg().endpoint, project: cfg().project, secretKey: cfg().secretKey });
+    cfg().transport ??
+    createHttpTransport({
+      endpoint: cfg().endpoint,
+      project: cfg().project,
+      secretKey: cfg().secretKey,
+      meta: () => {
+        const mode = host.reporter();
+        return {
+          sdkVersion: SDK_VERSION,
+          features: sdk().features,
+          maskText: cfg().privacy?.maskText ?? "inputs",
+          ...(mode.teamToken ? { teamToken: mode.teamToken } : {}),
+          ...(mode.guestToken ? { guestToken: mode.guestToken } : {}),
+        };
+      },
+    });
   const queue: OfflineQueue = browser ? createQueue() : memoryQueue();
   const captures = new Map<string, PendingCapture>();
   let env: EnvironmentInfo | null = null;
@@ -185,6 +203,7 @@ export function createSession(core: EngineCore): Session {
   let destroyed = false;
 
   const enabled = (f: keyof ResolvedConfig["features"]) => cfg().features[f];
+  const sdk = (): SdkInfo => ({ name: SDK_NAME, version: SDK_VERSION, features: (Object.keys(cfg().features) as FeatureName[]).filter((f) => cfg().features[f]) });
   const environment = () => (env ??= collectEnvironment());
 
   // Performance: buffered observers, so installing now still sees LCP / CLS / long tasks from page load.
@@ -197,7 +216,7 @@ export function createSession(core: EngineCore): Session {
     flagger = createFlagger({
       transport: () => transport,
       queue,
-      sdk: core.sdk,
+      sdk,
       server: !browser,
       limitPerMinute: () => cfg().flagRateLimit,
       replay: core.replay,
@@ -259,11 +278,12 @@ export function createSession(core: EngineCore): Session {
     if (tp && !traceparents.includes(tp)) traceparents.push(tp);
     const snapshot: Snapshot = {
       at,
-      console: include.console ? core.snap<ConsoleEntry[]>("console", []) : [],
-      errors: [...core.earlyErrors, ...core.snap<ErrorEntry[]>("errors", [])],
-      network: include.network ? core.snap<Har>("network", emptyHar()) : emptyHar(),
-      breadcrumbs: core.crumbs(),
-      navigation: core.snap<NavigationSnapshot>("navigation", { entries: [], history: [] }),
+      // Signals hold raw records: serialized, redacted and formatted here, before anything is sent.
+      console: include.console ? finalizeConsole(core.snap<RawConsoleEntry[]>("console", []), redactor) : [],
+      errors: [...core.earlyErrors, ...core.snap<RawError[]>("errors", [])].map((e) => finalizeError(e, redactor.redact)),
+      network: include.network ? harFrom(core.snap<RawRequest[]>("network", []), redactor) : emptyHar(),
+      breadcrumbs: finalizeCrumbs(core.crumbs(), redactor),
+      navigation: finalizeNavigation(core.snap<NavigationSnapshot>("navigation", { entries: [], history: [] }), redactor),
       environment: browser ? { ...environment(), ...viewportNow() } : environment(),
       page,
       traceparents,
@@ -479,7 +499,7 @@ export function createSession(core: EngineCore): Session {
       })),
       trace: { traceparents: snapshot.traceparents.slice(-20), ...(sessionId ? { sessionId } : {}), serverEvents: [] },
       timeline: buildTimeline({ ...signalsOut, console: snapshot.console }, snapshot.at),
-      sdk: core.sdk(),
+      sdk: sdk(),
       ...(mode.teamToken ? { teamToken: mode.teamToken } : {}),
       ...(mode.guestToken ? { guestToken: mode.guestToken } : {}),
       ...(opts.turnstileToken ? { turnstileToken: opts.turnstileToken } : {}),
@@ -746,12 +766,12 @@ export function createSession(core: EngineCore): Session {
     },
     sendEvents(events, opts) {
       for (const e of events) if (e.type === "event") host.emit("track", e);
-      void transport.events({ key: cfg().project, events, sdk: core.sdk() }, opts).catch(() => {});
+      void transport.events({ key: cfg().project, events, sdk: sdk() }, opts).catch(() => {});
     },
     trackServer(name, props, revenue) {
       const event: AnalyticsEvent = { type: "event", name, at: iso(), url: "", pageviewId: "", ...(props ? { props } : {}), ...(revenue ? { revenue } : {}) };
       host.emit("track", event);
-      void transport.events({ key: cfg().project, events: [event], sdk: core.sdk() }).catch(() => {});
+      void transport.events({ key: cfg().project, events: [event], sdk: sdk() }).catch(() => {});
     },
     performance: () => core.signal("performance") as PerformanceSignal | undefined,
     sampledIn,

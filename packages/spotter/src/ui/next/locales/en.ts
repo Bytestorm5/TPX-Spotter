@@ -88,6 +88,8 @@ export const en = {
   "review.item.environment": "Browser, device and page address",
   "review.item.element": "The selected element",
   "review.item.recording": "Your screen recording",
+  "review.item.storage": "Storage keys (no values)",
+  "review.item.errors": "Errors ({count})",
   "review.remove": "Remove",
   "review.removed": "Removed",
   "review.restore": "Undo",
