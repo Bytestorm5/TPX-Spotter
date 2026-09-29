@@ -13,7 +13,8 @@
     "test:e2e": "pnpm --filter spotter-fixture-next test:e2e",
     "check:size": "pnpm --filter @trusplex/spotter check:size",
     "check:features": "pnpm --filter @trusplex/spotter check:features",
-    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:size && pnpm check:features"
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm check:size && pnpm check:features",
+    "publish:all": "pnpm build && pnpm check && pnpm --filter @trusplex/spotter publish"
   },
   "devDependencies": {
     "typescript": "5.9.3"

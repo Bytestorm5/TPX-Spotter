@@ -25,3 +25,19 @@ pnpm test:e2e         # Playwright against fixtures/next-app
 
 CI (`.github/workflows/ci.yml`) runs all of these. The budgets and the
 feature check are release-blocking.
+
+## Publish
+
+Bump `version` in `packages/spotter/package.json`, commit, then from a clean
+`main`:
+
+```sh
+npm login             # once; needs publish rights on the @trusplex scope
+pnpm publish:all      # build + pnpm check, then publish @trusplex/spotter
+```
+
+`publish:all` builds and runs the full `pnpm check` first, so a failing test, budget or
+feature check stops the release before anything reaches the registry.
+`pnpm publish` also refuses a dirty tree or a branch other than `main`. To
+inspect the tarball without publishing, run
+`pnpm build && pnpm --filter @trusplex/spotter publish --dry-run --no-git-checks`.
