@@ -57,6 +57,18 @@ SPOTTER_SECRET_KEY=sk_live_…      # server only: forwarding to Trusplex, sourc
 Disabled features are compiled out: a build with `replay: false` contains no
 replay code, and CI proves it. Enabled heavy features load lazily.
 
+## The widget's UI
+
+The report flow, the confirmation (with **Track status**, which opens the
+report's public tracking page) and the `<SpotterStatus />` popover are built
+from [`@trusplex/ui`](../ui/README.md), the Trusplex component kit. They
+render inside the widget's shadow root, and one theme drives them all:
+`appearance` (preset, scheme, `variables`) and inherit mode resolve to the
+widget's `--sp-*` tokens, and the kit's `--tui-*` tokens are mapped onto
+those. A host page's own styles, including its own `--tui-*` values if it
+uses the kit, don't reach the widget. Every part keeps its
+`data-spotter-part` hook for `appearance.elements` and custom CSS.
+
 ## Reporting from code
 
 ```ts

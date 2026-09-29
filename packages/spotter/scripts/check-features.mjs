@@ -88,6 +88,7 @@ async function bundleAll(defines) {
       absWorkingDir: pkg,
       define: { __SPOTTER_DEV__: "false", "process.env.NODE_ENV": '"production"', ...defines },
       external: ["react", "react-dom", "react/jsx-runtime", "next", "next/*", "node:*"],
+      conditions: ["source"],
       jsx: "automatic",
       logLevel: "silent",
       legalComments: "none",

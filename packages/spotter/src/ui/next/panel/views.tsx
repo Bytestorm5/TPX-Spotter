@@ -10,10 +10,10 @@ import * as flow from "../internal/bridge-flow.ts";
 import {
   AlertIcon,
   CheckIcon,
-  ChevronRight,
   ClickIcon,
   CopyIcon,
   CursorIcon,
+  ExternalIcon,
   GlobeIcon,
   ImageIcon,
   MicIcon,
@@ -24,7 +24,7 @@ import {
   ThumbIcon,
 } from "../internal/icons.tsx";
 import type { MessageKey } from "../locales/index.ts";
-import { Status, Submit } from "../primitives/misc.tsx";
+import { Badge, Button, Checkbox, Details, IconButton, KeyValue, List, ListItem, Notice, type Tone } from "@trusplex/ui";
 import { usePanel } from "./context.ts";
 
 // -- confirmation -------------------------------------------------------------------------------
@@ -33,6 +33,8 @@ export function SentView({ receipt, team, hasContact, onDone }: { receipt: Repor
   const { t, part } = usePanel();
   const [copied, setCopied] = useState(false);
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  // Team members go to the ticket in Console; everyone else to the public tracking page.
+  const follow = team && receipt.url ? { href: receipt.url, label: t("team.openTicket") } : receipt.statusUrl ? { href: receipt.statusUrl, label: t("sent.track") } : null;
   return (
     <div {...part("confirmation", "sp-done")}>
       <div className="sp-done-icon" aria-hidden="true">
@@ -42,32 +44,29 @@ export function SentView({ receipt, team, hasContact, onDone }: { receipt: Repor
       <p>{hasContact ? t("sent.body", { ref: receipt.ref }) : t("sent.bodyNoContact", { ref: receipt.ref })}</p>
       <div {...part("reference", "sp-ref")}>
         <span data-testid="spotter-ref">{receipt.ref}</span>
-        <button
-          type="button"
-          className="sp-icon-btn"
-          aria-label={copied ? t("sent.copied") : t("sent.copy")}
-          title={copied ? t("sent.copied") : t("sent.copy")}
+        <IconButton
+          size="sm"
+          label={copied ? t("sent.copied") : t("sent.copy")}
           onClick={() => {
             void navigator.clipboard?.writeText(receipt.ref).then(() => setCopied(true), () => {});
           }}
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
-        </button>
+        </IconButton>
       </div>
       {offline ? <p className="sp-queued">{t("sent.queued")}</p> : null}
       <div className="sp-done-actions">
-        {team && receipt.url ? (
-          <a className="sp-btn sp-btn-secondary" href={receipt.url} target="_blank" rel="noopener">
-            {t("team.openTicket")}
-          </a>
-        ) : receipt.statusUrl ? (
-          <a className="sp-btn sp-btn-secondary" href={receipt.statusUrl} target="_blank" rel="noopener">
-            {t("sent.track")}
-          </a>
+        {follow ? (
+          <Button asChild variant="secondary" {...part("track")}>
+            <a href={follow.href} target="_blank" rel="noopener">
+              {follow.label}
+              <ExternalIcon />
+            </a>
+          </Button>
         ) : null}
-        <button type="button" className="sp-btn sp-btn-primary" onClick={onDone} data-autofocus="">
+        <Button {...part("buttonPrimary")} onClick={onDone} data-autofocus="">
           {t("sent.done")}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -142,51 +141,50 @@ export function ReviewList(props: {
   return (
     <div className="sp-side">
       <div className="sp-scroll">
-        <p className="sp-hint" style={{ fontSize: 13 }}>
+        <p className="tui-hint" style={{ fontSize: 13 }}>
           {t("review.intro")}
         </p>
         {props.error ? (
-          <div className="sp-notice" data-tone="danger" role="alert">
-            <AlertIcon />
-            <span>{t("error.submit")}</span>
-          </div>
+          <Notice tone="danger" icon={<AlertIcon />}>
+            {t("error.submit")}
+          </Notice>
         ) : null}
-        <ul {...part("reviewList", "sp-list")}>
+        <List {...part("reviewList")}>
           {rows.map((r) => {
             const removed = props.include[r.kind] === false;
             const Icon = REVIEW_ICONS[r.icon] ?? ImageIcon;
             return (
-              <li key={r.label} data-removed={removed ? "" : undefined}>
-                <span className="sp-list-icon" aria-hidden="true">
-                  <Icon />
-                </span>
-                <span className="sp-list-text">
-                  <span className="sp-list-title">{r.label}</span>
-                  {removed ? <span className="sp-list-meta">{t("review.removed")}</span> : null}
-                </span>
-                {r.removable ? (
-                  <button
-                    type="button"
-                    className="sp-btn sp-btn-ghost sp-btn-sm"
-                    aria-label={removed ? `${t("review.restore")}: ${r.label}` : t("attach.remove", { item: r.label })}
-                    onClick={() => props.onToggle(r.kind, removed)}
-                  >
-                    {removed ? t("review.restore") : t("review.remove")}
-                  </button>
-                ) : null}
-              </li>
+              <ListItem
+                key={r.label}
+                data-removed={removed ? "" : undefined}
+                icon={<Icon />}
+                title={r.label}
+                meta={removed ? t("review.removed") : undefined}
+                end={
+                  r.removable ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={removed ? `${t("review.restore")}: ${r.label}` : t("attach.remove", { item: r.label })}
+                      onClick={() => props.onToggle(r.kind, removed)}
+                    >
+                      {removed ? t("review.restore") : t("review.remove")}
+                    </Button>
+                  ) : null
+                }
+              />
             );
           })}
-        </ul>
+        </List>
       </div>
       <div className="sp-actions">
         <p className="sp-summary">
           <span>{props.hasShot && props.include.screenshot !== false ? t("attach.summary") : t("attach.summaryText")}</span>
         </p>
         <div className="sp-actions-row">
-          <Submit className="sp-btn sp-btn-primary" busy={props.busy} busyLabel={t("submit.sending")} data-autofocus="" onClick={props.onSend} type="button">
-            {t("submit.send")}
-          </Submit>
+          <Button {...part("buttonPrimary")} busy={props.busy} data-autofocus="" onClick={props.onSend}>
+            {props.busy ? t("submit.sending") : t("submit.send")}
+          </Button>
         </div>
       </div>
     </div>
@@ -204,6 +202,23 @@ const STATUS_KEYS: Record<PublicStatus, MessageKey> = {
 };
 export { STATUS_KEYS };
 
+/** A report's public status as a kit badge. */
+const STATUS_TONES: Record<PublicStatus, Tone> = {
+  received: "neutral",
+  in_progress: "info",
+  needs_info: "warning",
+  resolved: "success",
+  wont_fix: "neutral",
+};
+
+export function StatusBadge({ status, label }: { status: PublicStatus; label: string }) {
+  return (
+    <Badge tone={STATUS_TONES[status]} dot data-status={status} data-spotter-part="status">
+      {label}
+    </Badge>
+  );
+}
+
 export function SimilarList({ items, busy, onContinue, onDone }: { items: SimilarIssue[]; busy: boolean; onContinue: () => void; onDone: () => void }) {
   const { t, part } = usePanel();
   const [voted, setVoted] = useState<Record<string, number | "pending">>({});
@@ -211,53 +226,58 @@ export function SimilarList({ items, busy, onContinue, onDone }: { items: Simila
   return (
     <div className="sp-side">
       <div className="sp-scroll">
-        <ul {...part("similarList", "sp-list")}>
+        <List {...part("similarList")}>
           {items.map((it) => {
             const v = voted[it.id];
             const done = typeof v === "number";
             return (
-              <li key={it.id}>
-                <span className="sp-list-text">
-                  <span className="sp-list-title">{it.title}</span>
-                  <span className="sp-list-meta" aria-label={`${it.ref}, ${t("similar.count", { count: done ? v : it.count })}`}>
+              <ListItem
+                key={it.id}
+                title={it.title}
+                meta={
+                  <span aria-label={`${it.ref}, ${t("similar.count", { count: done ? v : it.count })}`}>
                     {it.ref}
                     <span className="sp-votes" aria-hidden="true">
                       <ThumbIcon />
                       {done ? v : it.count}
                     </span>
                   </span>
-                </span>
-                <Status status={it.status} label={t(STATUS_KEYS[it.status])} />
-                <button
-                  type="button"
-                  className="sp-btn sp-btn-secondary sp-btn-sm"
-                  aria-pressed={done}
-                  disabled={v === "pending"}
-                  onClick={async () => {
-                    if (done) return;
-                    setVoted((s) => ({ ...s, [it.id]: "pending" }));
-                    const n = await flow.plusOne(it.id);
-                    setVoted((s) => ({ ...s, [it.id]: n ?? it.count + 1 }));
-                  }}
-                >
-                  {done ? <CheckIcon /> : <ThumbIcon />}
-                  {done ? t("similar.plusOned") : t("similar.plusOne")}
-                </button>
-              </li>
+                }
+                end={
+                  <>
+                    <StatusBadge status={it.status} label={t(STATUS_KEYS[it.status])} />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-pressed={done}
+                      disabled={v === "pending"}
+                      iconStart={done ? <CheckIcon /> : <ThumbIcon />}
+                      onClick={async () => {
+                        if (done) return;
+                        setVoted((s) => ({ ...s, [it.id]: "pending" }));
+                        const n = await flow.plusOne(it.id);
+                        setVoted((s) => ({ ...s, [it.id]: n ?? it.count + 1 }));
+                      }}
+                    >
+                      {done ? t("similar.plusOned") : t("similar.plusOne")}
+                    </Button>
+                  </>
+                }
+              />
             );
           })}
-        </ul>
+        </List>
       </div>
       <div className="sp-actions">
         <div className="sp-actions-row">
           {any ? (
-            <button type="button" className="sp-btn sp-btn-secondary" onClick={onDone}>
+            <Button variant="secondary" onClick={onDone}>
               {t("sent.done")}
-            </button>
+            </Button>
           ) : null}
-          <Submit className="sp-btn sp-btn-primary" type="button" busy={busy} busyLabel={t("submit.sending")} onClick={onContinue}>
-            {t("similar.continue")}
-          </Submit>
+          <Button {...part("buttonPrimary")} busy={busy} onClick={onContinue}>
+            {busy ? t("submit.sending") : t("similar.continue")}
+          </Button>
         </div>
       </div>
     </div>
@@ -275,30 +295,31 @@ export function RecordingSetup({ onStart, onSkip }: { onStart: (mic: boolean) =>
     <div className="sp-side">
       <div className="sp-scroll">
         <p style={{ color: "var(--sp-text-muted)" }}>{t("recording.body")}</p>
-        <label className="sp-check">
-          <input type="checkbox" checked={mic} onChange={(e) => setMic(e.target.checked)} />
-          <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-            <MicIcon />
-            {t("recording.mic")}
-          </span>
-        </label>
+        <Checkbox
+          checked={mic}
+          onChange={(e) => setMic(e.target.checked)}
+          label={
+            <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <MicIcon />
+              {t("recording.mic")}
+            </span>
+          }
+        />
       </div>
       <div className="sp-actions">
         <div className="sp-actions-row">
-          <button type="button" className="sp-btn sp-btn-ghost" onClick={onSkip}>
+          <Button variant="ghost" onClick={onSkip}>
             {t("annotate.skip")}
-          </button>
-          <button
-            type="button"
-            className="sp-btn sp-btn-primary"
+          </Button>
+          <Button
             data-autofocus=""
+            iconStart={<RecordIcon />}
             onClick={async () => {
               activeSession = await onStart(mic);
             }}
           >
-            <RecordIcon />
             {t("recording.start")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -335,9 +356,9 @@ export function RecordingPill({ onStop }: { onStop: (r: { blob: Blob; contentTyp
     <div className="sp-float" data-at="bottom" role="region" aria-label={t("recording.title")}>
       <span className="sp-rec-dot" aria-hidden="true" />
       <span aria-live="off">{t("recording.active", { time })}</span>
-      <button ref={stopRef} type="button" className="sp-btn sp-btn-primary sp-btn-sm" onClick={() => void stop()}>
+      <Button ref={stopRef} size="sm" onClick={() => void stop()}>
         {t("recording.stop")}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -348,52 +369,39 @@ export function DevDetailsDrawer({ captureId }: { captureId: string | undefined 
   const { t, part } = usePanel();
   const d = flow.devDetails(captureId);
   return (
-    <details {...part("devDetails", "sp-details")}>
-      <summary>
-        <ChevronRight />
-        {t("team.devDetails")}
-      </summary>
-      <div className="sp-details-body">
-        <section>
-          <h3 className="sp-subhead">
-            {t("team.consoleErrors")} ({d.consoleErrors.length})
-          </h3>
-          {d.consoleErrors.length ? (
-            d.consoleErrors.slice(-5).map((e, i) => (
-              <p key={i} className="sp-code" style={{ marginTop: 6 }}>
-                {e.message}
-              </p>
-            ))
-          ) : (
-            <p className="sp-hint">{t("team.none")}</p>
-          )}
-        </section>
-        <section>
-          <h3 className="sp-subhead">
-            {t("team.failedRequests")} ({d.failedRequests.length})
-          </h3>
-          {d.failedRequests.length ? (
-            d.failedRequests.slice(-5).map((r, i) => (
-              <p key={i} className="sp-code" style={{ marginTop: 6 }}>
-                {r.status} {r.method} {r.url}
-              </p>
-            ))
-          ) : (
-            <p className="sp-hint">{t("team.none")}</p>
-          )}
-        </section>
-        <section>
-          <h3 className="sp-subhead">{t("team.environment")}</h3>
-          <dl className="sp-kv" style={{ marginTop: 6 }}>
-            {Object.entries(d.environment).map(([k, v]) => (
-              <div key={k} style={{ display: "contents" }}>
-                <dt>{k}</dt>
-                <dd>{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      </div>
-    </details>
+    <Details {...part("devDetails", "sp-details")} summary={t("team.devDetails")}>
+      <section>
+        <h3 className="tui-subhead">
+          {t("team.consoleErrors")} ({d.consoleErrors.length})
+        </h3>
+        {d.consoleErrors.length ? (
+          d.consoleErrors.slice(-5).map((e, i) => (
+            <p key={i} className="tui-code sp-code" style={{ marginTop: 6 }}>
+              {e.message}
+            </p>
+          ))
+        ) : (
+          <p className="tui-hint">{t("team.none")}</p>
+        )}
+      </section>
+      <section>
+        <h3 className="tui-subhead">
+          {t("team.failedRequests")} ({d.failedRequests.length})
+        </h3>
+        {d.failedRequests.length ? (
+          d.failedRequests.slice(-5).map((r, i) => (
+            <p key={i} className="tui-code sp-code" style={{ marginTop: 6 }}>
+              {r.status} {r.method} {r.url}
+            </p>
+          ))
+        ) : (
+          <p className="tui-hint">{t("team.none")}</p>
+        )}
+      </section>
+      <section>
+        <h3 className="tui-subhead">{t("team.environment")}</h3>
+        <KeyValue mono style={{ marginTop: 6 }} items={Object.entries(d.environment).map(([k, v]) => [k, v])} />
+      </section>
+    </Details>
   );
 }

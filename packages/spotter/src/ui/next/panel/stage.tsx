@@ -4,6 +4,7 @@
  * While the screenshot is still being captured it shows a skeleton, so the
  * panel is on screen immediately.
  */
+import { Notice, Spinner } from "@trusplex/ui";
 import type { ReactNode } from "react";
 import { canRedo, canUndo, COLORS, redo, undo, type History, type Tool } from "../annotate/model.ts";
 import { ArrowIcon, BlurIcon, PenIcon, PinIcon, RectIcon, RedoIcon, TextIcon, UndoIcon } from "../internal/icons.tsx";
@@ -133,12 +134,10 @@ export function Stage(props: StageProps) {
             <StaticShot image={image} alt={t("attach.screenshot")} />
           )
         ) : props.failed ? (
-          <p className="sp-notice" data-tone="info">
-            {t("capture.failed")}
-          </p>
+          <Notice tone="info">{t("capture.failed")}</Notice>
         ) : (
           <div className="sp-skeleton" aria-busy="true">
-            <span className="sp-spinner" aria-hidden="true" />
+            <Spinner />
             <span>{t("capture.capturing")}</span>
           </div>
         )}

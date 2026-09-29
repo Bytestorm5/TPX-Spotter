@@ -3,7 +3,7 @@
  * `Field` primitive: renders any custom field declaration (text, textarea,
  * select, multiselect, checkbox, rating, file) with its label, hint and
  * error wired up for assistive tech (`aria-describedby`, `aria-invalid`,
- * `aria-required`). Unstyled apart from the `sp-*` classes the styled panel
+ * `aria-required`). Unstyled apart from the `@trusplex/ui` (`tui-*`) and `sp-*` classes the styled panel
  * targets; visibility (`showWhen`) and validation live in
  * `internal/fields.ts` so they're shared with the submit path.
  */
@@ -62,7 +62,7 @@ export function Field({ field, value, onChange, issue, labels: partial, onBlur, 
       control = (
         <input
           {...common}
-          className="sp-input"
+          className="tui-input sp-input"
           data-spotter-part="input"
           type="text"
           value={typeof value === "string" ? value : ""}
@@ -75,7 +75,7 @@ export function Field({ field, value, onChange, issue, labels: partial, onBlur, 
       control = (
         <textarea
           {...common}
-          className="sp-textarea"
+          className="tui-textarea sp-textarea"
           data-size="sm"
           data-spotter-part="textarea"
           value={typeof value === "string" ? value : ""}
@@ -86,10 +86,10 @@ export function Field({ field, value, onChange, issue, labels: partial, onBlur, 
       break;
     case "select":
       control = (
-        <div className="sp-select-wrap">
+        <div className="tui-select-wrap sp-select-wrap">
           <select
             {...common}
-            className="sp-select"
+            className="tui-select sp-select"
             data-spotter-part="select"
             value={typeof value === "string" ? value : ""}
             onChange={(e) => onChange(e.target.value || null)}
@@ -108,14 +108,14 @@ export function Field({ field, value, onChange, issue, labels: partial, onBlur, 
     case "multiselect": {
       const selected = Array.isArray(value) ? value : [];
       control = (
-        <div className="sp-chips" role="group" aria-labelledby={`${id}-label`} aria-describedby={described} data-spotter-part="chips">
+        <div className="tui-chips sp-chips" role="group" aria-labelledby={`${id}-label`} aria-describedby={described} data-spotter-part="chips">
           {field.options?.map((o) => {
             const on = selected.includes(o.value);
             return (
               <button
                 key={o.value}
                 type="button"
-                className="sp-chip"
+                className="tui-chip sp-chip"
                 aria-pressed={on}
                 onClick={() => onChange(on ? selected.filter((v) => v !== o.value) : [...selected, o.value])}
               >
@@ -130,13 +130,13 @@ export function Field({ field, value, onChange, issue, labels: partial, onBlur, 
     case "checkbox":
       // The label is the checkbox's own text; no separate label row.
       return (
-        <div className="sp-field" data-spotter-part="field">
-          <label className="sp-check">
+        <div className="tui-field sp-field" data-spotter-part="field">
+          <label className="tui-check sp-check">
             <input {...common} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />
             <span>{field.label}</span>
           </label>
           {issue ? (
-            <p id={errorId} className="sp-error" role="alert">
+            <p id={errorId} className="tui-error sp-error" role="alert">
               {labels.error(issue)}
             </p>
           ) : null}
@@ -178,7 +178,7 @@ export function Field({ field, value, onChange, issue, labels: partial, onBlur, 
       const names = Array.isArray(value) ? value : [];
       control = (
         <div className="sp-file">
-          <label className="sp-btn sp-btn-secondary sp-btn-sm">
+          <label className="tui-btn sp-btn" data-variant="secondary" data-size="sm">
             <input
               {...common}
               type="file"
@@ -198,22 +198,22 @@ export function Field({ field, value, onChange, issue, labels: partial, onBlur, 
   }
 
   return (
-    <div className="sp-field" data-spotter-part="field">
-      <div className="sp-label-row">
+    <div className="tui-field sp-field" data-spotter-part="field">
+      <div className="tui-label-row sp-label-row">
         {field.type === "multiselect" || field.type === "rating" ? (
-          <span id={`${id}-label`} className="sp-label" data-spotter-part="label">
+          <span id={`${id}-label`} className="tui-label sp-label" data-spotter-part="label">
             {field.label}
           </span>
         ) : (
-          <label id={`${id}-label`} htmlFor={id} className="sp-label" data-spotter-part="label">
+          <label id={`${id}-label`} htmlFor={id} className="tui-label sp-label" data-spotter-part="label">
             {field.label}
           </label>
         )}
-        {!field.required ? <span className="sp-optional">{labels.optional}</span> : null}
+        {!field.required ? <span className="tui-optional sp-optional">{labels.optional}</span> : null}
       </div>
       {control}
       {issue ? (
-        <p id={errorId} className="sp-error" role="alert" data-spotter-part="error">
+        <p id={errorId} className="tui-error sp-error" role="alert" data-spotter-part="error">
           {labels.error(issue)}
         </p>
       ) : null}

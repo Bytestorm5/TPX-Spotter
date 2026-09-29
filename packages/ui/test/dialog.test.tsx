@@ -128,6 +128,37 @@ describe("ChipGroup", () => {
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
 
+  it("single-select moves and selects with the arrow keys (the radio pattern), and takes per-chip props", async () => {
+    const onChange = vi.fn();
+    const { host } = mount(
+      <ChipGroup
+        labelledBy="cat"
+        value="bug"
+        onChange={onChange}
+        chipProps={{ className: "mine", "data-part": "chip" }}
+        options={[
+          { value: "bug", label: "Bug" },
+          { value: "idea", label: "Idea" },
+          { value: "question", label: "Question" },
+        ]}
+      />,
+    );
+    expect(host.querySelector('[role="radiogroup"]')!.getAttribute("aria-labelledby")).toBe("cat");
+    const chips = Array.from(host.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
+    expect(chips[0]!.className).toBe("tui-chip mine");
+    expect(chips[0]!.getAttribute("data-part")).toBe("chip");
+    chips[0]!.focus();
+    await act(async () => {
+      chips[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith("idea");
+    expect(document.activeElement).toBe(chips[1]);
+    await act(async () => {
+      chips[1]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    });
+    expect(onChange).toHaveBeenLastCalledWith("question");
+  });
+
   it("multi-select toggles membership", async () => {
     const onChange = vi.fn();
     const { host } = mount(

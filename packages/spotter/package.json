@@ -48,6 +48,7 @@
   "dependencies": {
     "@rrweb/record": "2.1.6",
     "@rrweb/types": "2.1.6",
+    "@trusplex/ui": "workspace:*",
     "fflate": "0.8.3",
     "modern-screenshot": "4.7.0"
   },

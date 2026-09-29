@@ -87,6 +87,20 @@ Every component forwards its HTML attributes and `className`. The class
 names (`tui-btn`, `tui-input`, …) are public too. Plain HTML styled with
 them looks the same.
 
+## Inside a shadow root
+
+`@trusplex/ui/css` exports the stylesheet as a string, `KIT_CSS`, for a
+constructed stylesheet in a shadow root. That's how the Spotter widget
+styles its report flow, which is built from this kit. Set the `--tui-*`
+tokens on `:host`, because the defaults target `:root`.
+
+```ts
+import { KIT_CSS } from "@trusplex/ui/css";
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(`${KIT_CSS}:host{--tui-primary:#4f46e5}`);
+shadowRoot.adoptedStyleSheets = [sheet];
+```
+
 ## Gallery
 
 `pnpm --filter @trusplex/ui gallery` builds `gallery/dist/index.html`,

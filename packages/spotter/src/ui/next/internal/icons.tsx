@@ -16,6 +16,8 @@ export const BackIcon = () => S(<path d="M15 18l-6-6 6-6" />);
 export const CheckIcon = () => S(<path d="M5 12.5l4.5 4.5L19 7.5" strokeWidth={2.25} />);
 export const ChevronRight = () => S(<path d="M9 6l6 6-6 6" />);
 export const ChevronDown = () => S(<path d="M6 9l6 6 6-6" />);
+export const ExternalIcon = () =>
+  S([<path key="a" d="M14 5h5v5" />, <path key="b" d="M19 5l-8 8" />, <path key="c" d="M17 14v4.5A1.5 1.5 0 0 1 15.5 20h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10" />]);
 export const CopyIcon = () =>
   S([<rect key="a" x="8" y="8" width="12" height="12" rx="2.5" />, <path key="b" d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8" />]);
 export const ShieldIcon = () => S([<path key="a" d="M12 3l7 3v5.5c0 4.3-3 7.9-7 9.5-4-1.6-7-5.2-7-9.5V6z" />, <path key="b" d="M9 12l2 2 4-4" />]);

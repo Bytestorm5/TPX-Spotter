@@ -16,12 +16,19 @@
   ],
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./theme": {
+      "source": "./src/theme/index.ts",
       "types": "./dist/theme/index.d.ts",
       "default": "./dist/theme/index.js"
+    },
+    "./css": {
+      "source": "./src/css.ts",
+      "types": "./dist/css.d.ts",
+      "default": "./dist/css.js"
     },
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
@@ -42,7 +49,7 @@
     "esbuild": "0.28.2"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "node scripts/emit-css.mjs && node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "gallery": "node scripts/gallery.mjs"

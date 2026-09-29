@@ -4,6 +4,7 @@
  * intercepted in the capture phase so the host's own handlers never see the
  * pick click (no accidental "Buy now"). Esc or Cancel backs out.
  */
+import { Button } from "@trusplex/ui";
 import { useEffect, useRef, useState } from "react";
 import { peekUiRoot } from "../internal/host.ts";
 import { usePanel } from "./context.ts";
@@ -88,9 +89,9 @@ export function Picker({ onPick, onCancel }: { onPick: (el: Element) => void; on
       ) : null}
       <div {...part("picker", "sp-float")} data-at="top" role="dialog" aria-label={t("attach.pickElement")}>
         <span role="status">{t("picker.hint")}</span>
-        <button ref={cancelRef} type="button" className="sp-btn sp-btn-secondary sp-btn-sm" onClick={onCancel}>
+        <Button ref={cancelRef} variant="secondary" size="sm" onClick={onCancel}>
           {t("picker.cancel")}
-        </button>
+        </Button>
       </div>
     </>
   );

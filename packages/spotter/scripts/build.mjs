@@ -66,6 +66,8 @@ const common = {
   logLevel: "warning",
   define: { __SPOTTER_DEV__: "false", "process.env.NODE_ENV": '"production"' },
   absWorkingDir: pkg,
+  // Workspace packages (@trusplex/ui) from source; a published install resolves their dist.
+  conditions: ["source"],
 };
 await build({ ...common, entryPoints: ["scripts/cdn-entry.ts"], format: "iife", globalName: "Spotter", outfile: "dist/cdn/spotter.min.js" });
 await build({

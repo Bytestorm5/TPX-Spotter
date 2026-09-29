@@ -1,6 +1,6 @@
 "use client";
 /**
- * The panel chunk's entry: installs the panel CSS, resolves locale and
+ * The panel chunk's entry: installs the kit's and the panel's CSS, resolves locale and
  * theme (shared with the trigger), and portals the flow — or the element
  * picker — into the widget's shadow root.
  */
@@ -11,6 +11,7 @@ import { beginCapture, closeFlow } from "../internal/controller.ts";
 import { hasCss, peekUiRoot, setCss } from "../internal/host.ts";
 import { getServerSnapshot, getSnapshot, subscribe } from "../internal/store.ts";
 import { loadCanvas } from "../primitives/annotation.tsx";
+import { WIDGET_KIT_CSS } from "../theme/kit.ts";
 import { PANEL_CSS } from "../theme/panel-css.ts";
 import { ensureRuntime, type TriggerRuntime } from "../theme/trigger-runtime.ts";
 import { makePart, PanelContext } from "./context.ts";
@@ -31,7 +32,11 @@ export function Panel({ config, nonce, teamSignIn }: PanelProps) {
     // Warm the canvas chunk while the screenshot is being taken.
     void loadCanvas()?.catch(() => {});
     void ensureRuntime({ appearance: config.appearance, locale: config.locale, localization: config.localization, nonce }).then((r) => {
-      if (!unstyled && !hasCss("panel")) setCss("panel", PANEL_CSS, nonce);
+      if (!unstyled && !hasCss("panel")) {
+        // The kit's components first, then the panel's own parts (which may refine them).
+        setCss("kit", WIDGET_KIT_CSS, nonce);
+        setCss("panel", PANEL_CSS, nonce);
+      }
       if (alive) setRt(r);
     });
     return () => {

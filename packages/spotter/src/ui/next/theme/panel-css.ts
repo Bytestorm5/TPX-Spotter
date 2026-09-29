@@ -10,12 +10,13 @@ export const PANEL_CSS = `
 .sp-root{--u:calc(var(--sp-unit,1rem)/4);font-family:var(--sp-font);color:var(--sp-text);font-size:14px;line-height:1.45;
 -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-align:start}
 .sp-root *,.sp-root *::before,.sp-root *::after{box-sizing:border-box}
-.sp-root :where(button,select,textarea,input){font:inherit;color:inherit;letter-spacing:inherit}
-.sp-root :where(h2,h3,p,ul,ol,dl,dd,figure){margin:0;padding:0}
-.sp-root :where(ul,ol){list-style:none}
-.sp-root :where(a){color:inherit}
-.sp-root :focus{outline:none}
-.sp-root :focus-visible{outline:2px solid var(--sp-ring);outline-offset:2px}
+/* Element resets and the default focus ring at zero specificity, so the kit's components (and the panel's own parts) always win. */
+:where(.sp-root) :where(button,select,textarea,input){font:inherit;color:inherit;letter-spacing:inherit}
+:where(.sp-root) :where(h2,h3,p,ul,ol,dl,dd,figure){margin:0;padding:0}
+:where(.sp-root) :where(ul,ol){list-style:none}
+:where(.sp-root) :where(a){color:inherit}
+:where(.sp-root) :where(:focus){outline:none}
+:where(.sp-root) :where(:focus-visible){outline:2px solid var(--sp-ring);outline-offset:2px}
 .sp-root [hidden]{display:none!important}
 .sp-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
@@ -38,8 +39,6 @@ font-size:12px;font-weight:500;border-bottom:1px solid #f3dfa6}
 .sp-header{display:flex;align-items:center;gap:8px;min-height:52px;padding:10px 12px 10px 18px;border-bottom:1px solid var(--sp-border)}
 .sp-header[data-back]{padding-inline-start:10px}
 .sp-title{flex:1;min-width:0;font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sp-badge{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:var(--sp-surface);
-border:1px solid var(--sp-border);font-size:11px;font-weight:600;color:var(--sp-text-muted);letter-spacing:.01em}
 .sp-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;border-top:1px solid var(--sp-border);
 font-size:12px;color:var(--sp-text-muted);background:var(--sp-bg)}
 .sp-footer a,.sp-footer button{color:var(--sp-text-muted);text-decoration:none;background:none;border:0;padding:2px 0;cursor:pointer;font-size:12px;border-radius:4px}
@@ -55,63 +54,12 @@ font-size:12px;color:var(--sp-text-muted);background:var(--sp-bg)}
 scrollbar-width:thin;scrollbar-color:var(--sp-border-strong) transparent}
 .sp-actions{display:flex;flex-direction:column;gap:12px;padding:14px 18px 16px;border-top:1px solid var(--sp-border)}
 .sp-actions-row{display:flex;gap:8px;justify-content:flex-end}
-.sp-actions-row>.sp-btn{flex:1}
+.sp-actions-row>.tui-btn{flex:1}
 
-/* buttons */
-.sp-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:38px;padding:0 14px;border-radius:var(--sp-radius);
-border:1px solid transparent;font-size:14px;font-weight:500;line-height:1;cursor:pointer;white-space:nowrap;text-decoration:none;
-transition:background-color .12s,border-color .12s,color .12s,box-shadow .12s,opacity .12s;user-select:none}
-.sp-btn:disabled{opacity:.55;cursor:not-allowed}
-.sp-btn svg{width:16px;height:16px;flex:none}
-.sp-btn-primary{background:var(--sp-primary);color:var(--sp-primary-text);box-shadow:0 1px 2px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.08)}
-.sp-btn-primary:not(:disabled):hover{background:var(--sp-primary-hover)}
-.sp-btn-secondary{background:var(--sp-bg);color:var(--sp-text);border-color:var(--sp-border);box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.sp-btn-secondary:not(:disabled):hover{background:var(--sp-surface);border-color:var(--sp-border-strong)}
-.sp-btn-ghost{background:transparent;color:var(--sp-text-muted)}
-.sp-btn-ghost:not(:disabled):hover{background:var(--sp-surface);color:var(--sp-text)}
-.sp-btn-sm{height:30px;padding:0 10px;font-size:13px;gap:6px}
-.sp-btn-sm svg{width:15px;height:15px}
-.sp-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;border-radius:8px;border:0;
-background:transparent;color:var(--sp-text-muted);cursor:pointer;transition:background-color .12s,color .12s}
-.sp-icon-btn:hover{background:var(--sp-surface);color:var(--sp-text)}
-.sp-icon-btn:disabled{opacity:.4;cursor:not-allowed;background:transparent}
-.sp-icon-btn svg{width:18px;height:18px}
-.sp-link{background:none;border:0;padding:0;color:var(--sp-text);font-size:13px;font-weight:500;text-decoration:underline;
-text-decoration-color:var(--sp-border-strong);text-underline-offset:3px;cursor:pointer;border-radius:3px}
-.sp-link:hover{text-decoration-color:currentColor}
-.sp-spinner{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:sp-spin .7s linear infinite}
+/* buttons, icon buttons, links and spinners are @trusplex/ui's (theme/kit.ts) */
 
-/* fields */
-.sp-field{display:flex;flex-direction:column;gap:7px;min-width:0}
-.sp-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.sp-label{font-size:13px;font-weight:500;color:var(--sp-text);line-height:1.3}
-.sp-optional{font-size:12px;color:var(--sp-text-muted)}
-.sp-hint{font-size:12px;color:var(--sp-text-muted);line-height:1.4}
-.sp-error{display:flex;align-items:flex-start;gap:6px;font-size:12px;font-weight:500;color:var(--sp-danger);line-height:1.4}
-.sp-input,.sp-textarea,.sp-select{width:100%;min-height:38px;padding:8px 11px;border:1px solid var(--sp-border-strong);border-radius:var(--sp-radius);
-background:var(--sp-bg);color:var(--sp-text);font-size:14px;line-height:1.45;box-shadow:0 1px 2px rgba(0,0,0,.03);
-transition:border-color .12s,box-shadow .12s}
-.sp-textarea{min-height:104px;resize:vertical;display:block}
-.sp-textarea[data-size="sm"]{min-height:64px}
-.sp-input::placeholder,.sp-textarea::placeholder{color:var(--sp-text-muted);opacity:1}
-.sp-input:hover,.sp-textarea:hover,.sp-select:hover{border-color:var(--sp-text-muted)}
-.sp-input:focus-visible,.sp-textarea:focus-visible,.sp-select:focus-visible{outline:none;border-color:var(--sp-ring);
-box-shadow:0 0 0 3px color-mix(in srgb,var(--sp-ring) 22%,transparent)}
-.sp-input[aria-invalid="true"],.sp-textarea[aria-invalid="true"],.sp-select[aria-invalid="true"]{border-color:var(--sp-danger)}
-.sp-select{appearance:none;padding-inline-end:34px;cursor:pointer;background-image:none}
-.sp-select-wrap{position:relative}
-.sp-select-wrap svg{position:absolute;inset-inline-end:10px;top:50%;width:16px;height:16px;margin-top:-8px;pointer-events:none;color:var(--sp-text-muted)}
-.sp-check{display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;line-height:1.4}
-.sp-check input{appearance:none;flex:none;width:18px;height:18px;margin:1px 0 0;border:1px solid var(--sp-border-strong);border-radius:5px;
-background:var(--sp-bg);display:grid;place-content:center;cursor:pointer;transition:background-color .12s,border-color .12s}
-.sp-check input::after{content:"";width:10px;height:6px;border:2px solid var(--sp-primary-text);border-top:0;border-right:0;transform:rotate(-45deg) translateX(1px) translateY(-1px);opacity:0}
-.sp-check input:checked{background:var(--sp-primary);border-color:var(--sp-primary)}
-.sp-check input:checked::after{opacity:1}
-.sp-chips{display:flex;flex-wrap:wrap;gap:6px}
-.sp-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:var(--sp-radius-chip);border:1px solid var(--sp-border);
-background:var(--sp-bg);color:var(--sp-text);font-size:13px;font-weight:500;cursor:pointer;transition:background-color .12s,border-color .12s,color .12s}
-.sp-chip:hover{border-color:var(--sp-border-strong);background:var(--sp-surface)}
-.sp-chip[aria-checked="true"],.sp-chip[aria-pressed="true"]{background:var(--sp-primary);border-color:var(--sp-primary);color:var(--sp-primary-text)}
+/* fields: @trusplex/ui's Field, Input, Textarea, Select, Checkbox and ChipGroup; the widget adds */
+.tui-textarea[data-size="sm"]{min-height:64px}
 .sp-rating{display:flex;gap:2px}
 .sp-star{width:32px;height:32px;display:grid;place-items:center;border:0;background:none;border-radius:6px;color:var(--sp-border-strong);cursor:pointer}
 .sp-star svg{width:22px;height:22px}
@@ -176,44 +124,14 @@ animation:sp-pop .35s cubic-bezier(.2,1.4,.4,1) both}
 .sp-done p{color:var(--sp-text-muted);font-size:14px;max-width:32ch}
 .sp-ref{display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 4px 0 12px;border-radius:var(--sp-radius);background:var(--sp-surface);
 border:1px solid var(--sp-border);font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em;color:var(--sp-text)}
-.sp-ref .sp-icon-btn{width:28px;height:28px}
-.sp-ref .sp-icon-btn svg{width:15px;height:15px}
 .sp-done-actions{display:flex;gap:8px;width:100%;margin-top:6px}
 .sp-done-actions>*{flex:1}
+.sp-track{display:inline-flex;align-items:center;gap:4px;align-self:flex-start;font-size:12px}
+.sp-track svg,.sp-done-actions svg{width:14px;height:14px}
 .sp-queued{font-size:12px;color:var(--sp-warning)}
 
-/* notices, similar issues, review list, dev details */
-.sp-notice{display:flex;gap:10px;padding:10px 12px;border-radius:var(--sp-radius);font-size:13px;line-height:1.45}
-.sp-notice svg{flex:none;width:16px;height:16px;margin-top:1px}
-.sp-notice[data-tone="danger"]{background:var(--sp-danger-surface);color:var(--sp-danger)}
-.sp-notice[data-tone="info"]{background:var(--sp-surface);color:var(--sp-text)}
-.sp-list{display:flex;flex-direction:column;border:1px solid var(--sp-border);border-radius:calc(var(--sp-radius) + 2px);overflow:hidden}
-.sp-list>li{display:flex;align-items:center;gap:10px;padding:10px 12px;min-height:48px;background:var(--sp-bg)}
-.sp-list>li+li{border-top:1px solid var(--sp-border)}
-.sp-list-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.sp-list-title{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sp-list-meta{font-size:12px;color:var(--sp-text-muted)}
-.sp-list>li[data-removed] .sp-list-title{text-decoration:line-through;color:var(--sp-text-muted)}
-.sp-list-icon{flex:none;width:28px;height:28px;border-radius:7px;display:grid;place-items:center;background:var(--sp-surface);color:var(--sp-text-muted)}
-.sp-list-icon svg{width:15px;height:15px}
-.sp-status{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:999px;font-size:11px;font-weight:600;
-background:var(--sp-surface);color:var(--sp-text-muted);border:1px solid var(--sp-border);white-space:nowrap}
-.sp-status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
-.sp-status[data-status="resolved"]{color:var(--sp-success);background:var(--sp-success-surface);border-color:transparent}
-.sp-status[data-status="needs_info"]{color:var(--sp-warning)}
-.sp-status[data-status="in_progress"]{color:var(--sp-ring)}
-.sp-details{border:1px solid var(--sp-border);border-radius:calc(var(--sp-radius) + 2px);background:var(--sp-bg)}
-.sp-details>summary{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:13px;font-weight:500;cursor:pointer;list-style:none;border-radius:inherit}
-.sp-details>summary::-webkit-details-marker{display:none}
-.sp-details>summary svg{width:15px;height:15px;color:var(--sp-text-muted);transition:transform .15s}
-.sp-details[open]>summary svg{transform:rotate(90deg)}
-.sp-details-body{padding:4px 12px 12px;display:flex;flex-direction:column;gap:12px}
-.sp-kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px}
-.sp-kv dt{color:var(--sp-text-muted)}
-.sp-kv dd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere}
-.sp-code{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:8px 10px;border-radius:6px;background:var(--sp-surface);
-overflow-wrap:anywhere;color:var(--sp-text)}
-.sp-subhead{font-size:12px;font-weight:600;color:var(--sp-text-muted);text-transform:uppercase;letter-spacing:.04em}
+/* notices, lists, status badges, details, key/value and code are @trusplex/ui's; the widget adds */
+.tui-list-item[data-removed] .tui-list-title{text-decoration:line-through;color:var(--sp-text-muted)}
 .sp-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
 /* picker, recording pill, status badge */

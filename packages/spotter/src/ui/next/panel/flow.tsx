@@ -33,10 +33,11 @@ import {
 } from "../internal/icons.tsx";
 import { update, type UiSnapshot } from "../internal/store.ts";
 import type { MessageKey } from "../locales/index.ts";
+import { Badge, Button, ChipGroup, Field as KitField, IconButton, Input, Notice, Spinner, Textarea } from "@trusplex/ui";
 import { loadRenderer } from "../primitives/annotation.tsx";
 import { Panel as Dialog } from "../primitives/dialog.tsx";
 import { Field } from "../primitives/field.tsx";
-import { LiveRegion, Submit } from "../primitives/misc.tsx";
+import { LiveRegion } from "../primitives/misc.tsx";
 import { loadImage, Screenshot, type LoadedImage } from "../primitives/screenshot.tsx";
 import { usePanel } from "./context.ts";
 import { Picker } from "./picker.tsx";
@@ -393,30 +394,29 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
     <form {...part("form", "sp-side")} onSubmit={onSend} noValidate aria-labelledby="sp-title">
       <div className="sp-scroll">
         {snap.origin === "boundary" ? (
-          <div className="sp-notice" data-tone="info">
-            <AlertIcon />
-            <span>{t("error.boundary")}</span>
-          </div>
+          <Notice tone="info" icon={<AlertIcon />}>
+            {t("error.boundary")}
+          </Notice>
         ) : null}
         {submitError ? (
-          <div className="sp-notice" data-tone="danger" role="alert">
-            <AlertIcon />
-            <span>{t("error.submit")}</span>
-          </div>
+          <Notice tone="danger" icon={<AlertIcon />}>
+            {t("error.submit")}
+          </Notice>
         ) : null}
-        <div className="sp-field" data-field="description">
-          <label htmlFor="sp-desc" className="sp-label" {...part("label", "sp-label")}>
-            {mode === "feature" ? t("describe.featureWhat") : t("describe.what")}
-          </label>
-          <textarea
-            id="sp-desc"
+        <KitField
+          data-field="description"
+          label={mode === "feature" ? t("describe.featureWhat") : t("describe.what")}
+          htmlFor="sp-desc"
+          labelProps={part("label")}
+          error={errors.description ? t("validation.required") : undefined}
+          errorProps={part("error")}
+        >
+          <Textarea
             ref={descRef}
-            {...part("textarea", "sp-textarea")}
+            {...part("textarea")}
             data-autofocus={!split || step === "describe" || wide ? "" : undefined}
             required
             aria-required="true"
-            aria-invalid={errors.description ? true : undefined}
-            aria-describedby={errors.description ? "sp-desc-err" : undefined}
             placeholder={
               snap.origin === "boundary"
                 ? t("error.boundaryPrefill")
@@ -430,65 +430,36 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
               if (errors.description) setErrors(({ description: _, ...rest }) => rest);
             }}
           />
-          {errors.description ? (
-            <p id="sp-desc-err" className="sp-error" {...part("error", "sp-error")}>
-              {t("validation.required")}
-            </p>
-          ) : null}
-        </div>
+        </KitField>
 
         {mode !== "feature" ? (
-          <div className="sp-field">
-            <div className="sp-label-row">
-              <span id="sp-cat" className="sp-label">
+          <div className="tui-field">
+            <div className="tui-label-row">
+              <span id="sp-cat" className="tui-label">
                 {t("describe.category")}
               </span>
-              <span className="sp-optional">{t("contact.optional")}</span>
+              <span className="tui-optional">{t("contact.optional")}</span>
             </div>
-            <div className="sp-chips" role="radiogroup" aria-labelledby="sp-cat">
-              {CATEGORIES.map((c, i) => (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  {...part("chip", "sp-chip")}
-                  aria-checked={category === c}
-                  tabIndex={category === c || (category === null && i === 0) ? 0 : -1}
-                  onClick={() => setCategory(category === c ? null : c)}
-                  onKeyDown={(e) => {
-                    const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-                    if (!d) return;
-                    e.preventDefault();
-                    const rtl = (e.currentTarget.closest("[dir]") as HTMLElement | null)?.dir === "rtl" && (e.key === "ArrowRight" || e.key === "ArrowLeft");
-                    const n = (i + (rtl ? -d : d) + CATEGORIES.length) % CATEGORIES.length;
-                    setCategory(CATEGORIES[n]!);
-                    (e.currentTarget.parentElement?.children[n] as HTMLElement | undefined)?.focus();
-                  }}
-                >
-                  {t(CATEGORY_KEYS[c])}
-                </button>
-              ))}
-            </div>
+            <ChipGroup
+              labelledBy="sp-cat"
+              value={category}
+              onChange={setCategory}
+              chipProps={part("chip")}
+              options={CATEGORIES.map((c) => ({ value: c, label: t(CATEGORY_KEYS[c]) }))}
+            />
           </div>
         ) : null}
 
         {showExpected ? (
-          <div className="sp-field">
-            <div className="sp-label-row">
-              <label htmlFor="sp-exp" className="sp-label">
-                {t("describe.expected")}
-              </label>
-              <span className="sp-optional">{t("contact.optional")}</span>
-            </div>
-            <textarea
-              id="sp-exp"
-              {...part("textarea", "sp-textarea")}
+          <KitField label={t("describe.expected")} htmlFor="sp-exp" optional={t("contact.optional")} labelProps={part("label")}>
+            <Textarea
+              {...part("textarea")}
               data-size="sm"
               placeholder={t("describe.expectedPlaceholder")}
               value={expected}
               onChange={(e) => setExpected(e.target.value)}
             />
-          </div>
+          </KitField>
         ) : mode !== "feature" ? (
           <button type="button" className="sp-disclose" onClick={() => setShowExpected(true)}>
             <ChevronRight />
@@ -523,68 +494,53 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
 
         {team ? (
           <>
-            <div className="sp-field">
-              <span id="sp-sev" className="sp-label">
+            <div className="tui-field">
+              <span id="sp-sev" className="tui-label">
                 {t("team.severity")}
               </span>
-              <div className="sp-chips" role="radiogroup" aria-labelledby="sp-sev">
-                {SEVERITIES.map((s) => (
-                  <button key={s} type="button" role="radio" className="sp-chip" aria-checked={severity === s} onClick={() => setSeverity(severity === s ? null : s)}>
-                    {t(`severity.${s}` as MessageKey)}
-                  </button>
-                ))}
-              </div>
+              <ChipGroup
+                labelledBy="sp-sev"
+                value={severity}
+                onChange={setSeverity}
+                chipProps={part("chip")}
+                options={SEVERITIES.map((sv) => ({ value: sv, label: t(`severity.${sv}` as MessageKey) }))}
+              />
             </div>
             <div className="sp-grid2">
-              <div className="sp-field">
-                <label htmlFor="sp-assignee" className="sp-label">
-                  {t("team.assignee")}
-                </label>
-                <input id="sp-assignee" className="sp-input" placeholder={t("team.assigneePlaceholder")} value={assignee} onChange={(e) => setAssignee(e.target.value)} />
-              </div>
-              <div className="sp-field">
-                <label htmlFor="sp-labels" className="sp-label">
-                  {t("team.labels")}
-                </label>
-                <input id="sp-labels" className="sp-input" placeholder={t("team.labelsPlaceholder")} value={labels} onChange={(e) => setLabels(e.target.value)} />
-              </div>
+              <KitField label={t("team.assignee")} htmlFor="sp-assignee" labelProps={part("label")}>
+                <Input {...part("input")} placeholder={t("team.assigneePlaceholder")} value={assignee} onChange={(e) => setAssignee(e.target.value)} />
+              </KitField>
+              <KitField label={t("team.labels")} htmlFor="sp-labels" labelProps={part("label")}>
+                <Input {...part("input")} placeholder={t("team.labelsPlaceholder")} value={labels} onChange={(e) => setLabels(e.target.value)} />
+              </KitField>
             </div>
           </>
         ) : null}
 
         {!identified ? (
-          <div className="sp-field" data-field="email">
-            <div className="sp-label-row">
-              <label htmlFor="sp-email" className="sp-label">
-                {t("contact.email")}
-              </label>
-              <span className="sp-optional">{t("contact.optional")}</span>
-            </div>
-            <input
-              id="sp-email"
+          <KitField
+            data-field="email"
+            label={t("contact.email")}
+            htmlFor="sp-email"
+            optional={t("contact.optional")}
+            labelProps={part("label")}
+            hint={errors.email ? undefined : t("contact.emailHint")}
+            error={errors.email ? t("validation.email") : undefined}
+            errorProps={part("error")}
+          >
+            <Input
               type="email"
               autoComplete="email"
               inputMode="email"
-              {...part("input", "sp-input")}
+              {...part("input")}
               placeholder={t("contact.emailPlaceholder")}
               value={email}
-              aria-invalid={errors.email ? true : undefined}
-              aria-describedby={errors.email ? "sp-email-err" : "sp-email-hint"}
               onChange={(e) => {
                 setEmail(e.target.value);
                 if (errors.email) setErrors(({ email: _, ...rest }) => rest);
               }}
             />
-            {errors.email ? (
-              <p id="sp-email-err" className="sp-error">
-                {t("validation.email")}
-              </p>
-            ) : (
-              <p id="sp-email-hint" className="sp-hint">
-                {t("contact.emailHint")}
-              </p>
-            )}
-          </div>
+          </KitField>
         ) : null}
 
         {attachments}
@@ -596,9 +552,9 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
           <span>{hasShot ? t("attach.summary") : t("attach.summaryText")}</span>
         </p>
         <div className="sp-actions-row">
-          <Submit {...part("buttonPrimary", "sp-btn sp-btn-primary")} busy={busy} busyLabel={t("submit.sending")} disabled={capturing && hasShot}>
-            {primaryLabel}
-          </Submit>
+          <Button type="submit" {...part("buttonPrimary")} busy={busy} disabled={capturing && hasShot}>
+            {busy ? t("submit.sending") : primaryLabel}
+          </Button>
         </div>
       </div>
     </form>
@@ -621,9 +577,7 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
         view === "describe" ? (
           <div className="sp-actions sp-mobile-only">
             <div className="sp-actions-row">
-              <button type="button" className="sp-btn sp-btn-primary" onClick={() => setStep("describe")}>
-                {t("annotate.continue")}
-              </button>
+              <Button onClick={() => setStep("describe")}>{t("annotate.continue")}</Button>
             </div>
           </div>
         ) : null
@@ -669,17 +623,17 @@ export function Flow({ snap, teamSignIn }: { snap: UiSnapshot; teamSignIn: boole
   const header = (
     <header {...part("header", "sp-header")} data-back={back ? "" : undefined}>
       {back ? (
-        <button type="button" className="sp-icon-btn" aria-label={t("panel.back")} onClick={back}>
+        <IconButton label={t("panel.back")} onClick={back}>
           <BackIcon />
-        </button>
+        </IconButton>
       ) : null}
       <h2 id="sp-title" {...part("title", "sp-title")}>
         {title}
       </h2>
-      {team ? <span className="sp-badge">{t("team.badge")}</span> : null}
-      <button type="button" {...part("close", "sp-icon-btn")} aria-label={t("panel.close")} onClick={close}>
+      {team ? <Badge>{t("team.badge")}</Badge> : null}
+      <IconButton {...part("close")} label={t("panel.close")} onClick={close}>
         <CloseIcon />
-      </button>
+      </IconButton>
     </header>
   );
 
@@ -787,14 +741,14 @@ function AttachmentRows(props: {
         <div className="sp-attach-text">
           <span className="sp-attach-title">{t("attach.screenshot")}</span>
           <span className="sp-attach-meta">
-            <button type="button" className="sp-link" onClick={props.onAnnotate}>
+            <button type="button" className="tui-link" onClick={props.onAnnotate}>
               {t("attach.annotate")}
             </button>
           </span>
         </div>
-        <button type="button" className="sp-icon-btn" aria-label={t("attach.remove", { item: t("attach.screenshot") })} onClick={props.onRemoveShot}>
+        <IconButton label={t("attach.remove", { item: t("attach.screenshot") })} onClick={props.onRemoveShot}>
           <TrashIcon />
-        </button>
+        </IconButton>
       </div>,
     );
   }
@@ -802,7 +756,7 @@ function AttachmentRows(props: {
     rows.push(
       <div key="cap" className="sp-attach" aria-busy="true">
         <span className="sp-thumb" style={{ display: "grid", placeItems: "center" }}>
-          <span className="sp-spinner" aria-hidden="true" />
+          <Spinner />
         </span>
         <span className="sp-attach-title">{t("capture.capturing")}</span>
       </div>,
@@ -812,15 +766,15 @@ function AttachmentRows(props: {
     const label = describeElement(props.element);
     rows.push(
       <div key="el" className="sp-attach">
-        <span className="sp-list-icon">
+        <span className="tui-list-icon">
           <CursorIcon />
         </span>
         <div className="sp-attach-text">
           <span className="sp-attach-title">{t("attach.element", { selector: label })}</span>
         </div>
-        <button type="button" className="sp-icon-btn" aria-label={t("attach.remove", { item: label })} onClick={props.onRemoveElement}>
+        <IconButton label={t("attach.remove", { item: label })} onClick={props.onRemoveElement}>
           <TrashIcon />
-        </button>
+        </IconButton>
       </div>,
     );
   }
@@ -830,43 +784,40 @@ function AttachmentRows(props: {
     const label = t("attach.recording", { duration: `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` });
     rows.push(
       <div key="rec" className="sp-attach">
-        <span className="sp-list-icon">
+        <span className="tui-list-icon">
           <RecordIcon />
         </span>
         <div className="sp-attach-text">
           <span className="sp-attach-title">{label}</span>
         </div>
-        <button type="button" className="sp-icon-btn" aria-label={t("attach.remove", { item: label })} onClick={props.onRemoveRecording}>
+        <IconButton label={t("attach.remove", { item: label })} onClick={props.onRemoveRecording}>
           <TrashIcon />
-        </button>
+        </IconButton>
       </div>,
     );
   }
   const tools = [];
   if (props.canAddShot)
     tools.push(
-      <button key="add" type="button" className="sp-btn sp-btn-secondary sp-btn-sm" onClick={props.onAddShot}>
-        <CameraIcon />
+      <Button key="add" variant="secondary" size="sm" iconStart={<CameraIcon />} onClick={props.onAddShot}>
         {t("attach.addScreenshot")}
-      </button>,
+      </Button>,
     );
   if (props.canPick && !props.element)
     tools.push(
-      <button key="pick" type="button" className="sp-btn sp-btn-secondary sp-btn-sm" onClick={props.onPick}>
-        <CursorIcon />
+      <Button key="pick" variant="secondary" size="sm" iconStart={<CursorIcon />} onClick={props.onPick}>
         {t("attach.pickElement")}
-      </button>,
+      </Button>,
     );
   if (props.canRecord)
     tools.push(
-      <button key="rec" type="button" className="sp-btn sp-btn-secondary sp-btn-sm" onClick={props.onRecord}>
-        <RecordIcon />
+      <Button key="rec" variant="secondary" size="sm" iconStart={<RecordIcon />} onClick={props.onRecord}>
         {t("attach.record")}
-      </button>,
+      </Button>,
     );
   if (rows.length === 0 && tools.length === 0) return null;
   return (
-    <div className="sp-field">
+    <div className="tui-field">
       {rows}
       {tools.length ? <div className="sp-attach-tools">{tools}</div> : null}
     </div>

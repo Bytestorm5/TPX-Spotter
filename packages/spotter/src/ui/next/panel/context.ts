@@ -9,11 +9,12 @@ import type { Appearance } from "../../../core/schema.ts";
 import type { SpotterConfig } from "../../../core/types.ts";
 import type { Translate } from "../locales/index.ts";
 
-export interface PartProps {
+// A type alias (not an interface) so it fits props typed with a `data-*` index signature.
+export type PartProps = {
   className?: string;
   style?: CSSProperties;
   "data-spotter-part": string;
-}
+};
 
 export type PartFn = (name: string, base?: string) => PartProps;
 

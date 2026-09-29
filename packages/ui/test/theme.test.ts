@@ -94,3 +94,11 @@ describe("createTheme", () => {
     expect(themeCss(createTheme({ light: { text: "red;} body{display:none" } }))).not.toContain("} body{");
   });
 });
+
+describe("css.ts", () => {
+  it("is the current styles.css (run `node scripts/emit-css.mjs` after editing it)", async () => {
+    // @ts-expect-error — a plain .mjs script, no types
+    const { emit } = await import("../scripts/emit-css.mjs");
+    expect(readFileSync(new URL("../src/css.ts", import.meta.url), "utf8")).toBe(emit());
+  });
+});

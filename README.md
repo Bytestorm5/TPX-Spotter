@@ -4,13 +4,13 @@ Spotter (`@trusplex/spotter`) is the embeddable issue-capture SDK behind
 Trusplex Console's support loop. Spotter captures, and Dispatcher classifies,
 routes and resolves.
 
-| Path                                             |                                                                                                                                                                   |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/spotter`                               | The SDK: `core` (capture, reporting API, transport, hooks, ingest handler) and `ui/next` (the Next.js integration). See its [README](packages/spotter/README.md). |
-| `packages/spotter/schema/spotter.report.v1.json` | The published ticket schema                                                                                                                                       |
-| `packages/ui`                                    | `@trusplex/ui`, the component kit: the widget's design system (tokens, stylesheet, React components) for any app. See its [README](packages/ui/README.md).        |
-| `fixtures/next-app`                              | A Next.js App Router app that installs Spotter like a customer would, used for the Playwright e2e suite                                                           |
-| `docs/`                                          | [Wire protocol](docs/protocol.md), [hooks](docs/hooks.md), [privacy, consent and CSP](docs/privacy.md), [self-hosting](docs/self-hosting.md)                      |
+| Path                                             |                                                                                                                                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/spotter`                               | The SDK: `core` (capture, reporting API, transport, hooks, ingest handler) and `ui/next` (the Next.js integration). See its [README](packages/spotter/README.md).                |
+| `packages/spotter/schema/spotter.report.v1.json` | The published ticket schema                                                                                                                                                      |
+| `packages/ui`                                    | `@trusplex/ui`, the component kit the widget's report flow is built from: tokens, a stylesheet and React components, usable in any app. See its [README](packages/ui/README.md). |
+| `fixtures/next-app`                              | A Next.js App Router app that installs Spotter like a customer would, used for the Playwright e2e suite                                                                          |
+| `docs/`                                          | [Wire protocol](docs/protocol.md), [hooks](docs/hooks.md), [privacy, consent and CSP](docs/privacy.md), [self-hosting](docs/self-hosting.md)                                     |
 
 ## Develop
 

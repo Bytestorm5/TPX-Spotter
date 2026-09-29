@@ -8,13 +8,14 @@ import type { ReportStatusView } from "../../../core/schema.ts";
 import type { StoredReport } from "../../../core/types.ts";
 import * as flow from "../internal/bridge-flow.ts";
 import { ensureClient } from "../internal/controller.ts";
-import { InboxIcon } from "../internal/icons.tsx";
+import { Button, Textarea } from "@trusplex/ui";
+import { ExternalIcon, InboxIcon } from "../internal/icons.tsx";
+import { WIDGET_KIT_CSS } from "../theme/kit.ts";
 import { PANEL_CSS } from "../theme/panel-css.ts";
 import { themeStylesheet, watchScheme, detectScheme } from "../theme/runtime.ts";
 import { ensureRuntime, type TriggerRuntime } from "../theme/trigger-runtime.ts";
 import type { StatusWidgetProps } from "../status.tsx";
-import { Status, Submit } from "../primitives/misc.tsx";
-import { STATUS_KEYS } from "./views.tsx";
+import { STATUS_KEYS, StatusBadge } from "./views.tsx";
 
 const SEEN_KEY = "spotter:seen";
 const LOCAL_CSS = ":host{all:initial!important;display:inline-block!important;position:relative!important}.sp-root{display:inline-block;position:relative}";
@@ -73,7 +74,7 @@ export function StatusWidget({ shadow, container, pollSeconds, limit, config, no
     if (unstyled) return;
     const apply = () => {
       const { css } = themeStylesheet(config.appearance);
-      adopt(shadow, [LOCAL_CSS, css, PANEL_CSS], nonce);
+      adopt(shadow, [LOCAL_CSS, css, WIDGET_KIT_CSS, PANEL_CSS], nonce);
       container.setAttribute("data-scheme", detectScheme(config.appearance?.theme));
     };
     apply();
@@ -197,18 +198,24 @@ function ReportRow({ row, rt, unread, onChange }: { row: Row; rt: TriggerRuntime
       <div className="sp-report-head">
         {unread ? <span className="sp-unread" aria-hidden="true" /> : null}
         <span className="sp-report-title">{v?.title ?? row.stored.title}</span>
-        <Status status={status} label={t(STATUS_KEYS[status])} />
+        <StatusBadge status={status} label={t(STATUS_KEYS[status])} />
       </div>
-      <span className="sp-list-meta">
+      <span className="tui-list-meta">
         {row.stored.ref}
         {lastChange?.message && status !== "needs_info" ? ` · ${lastChange.message}` : ""}
       </span>
+      {row.stored.statusUrl ? (
+        <a className="tui-link sp-track" href={row.stored.statusUrl} target="_blank" rel="noopener" data-spotter-part="track">
+          {t("sent.track")}
+          <ExternalIcon />
+        </a>
+      ) : null}
       {status === "needs_info" && lastTeam ? (
         <div className="sp-thread">
           <span className="sp-thread-from">{t("status.question")}</span>
           <p>{lastTeam.body}</p>
           {sent ? (
-            <p className="sp-hint" role="status">
+            <p className="tui-hint" role="status">
               {t("status.sent")}
             </p>
           ) : (
@@ -228,20 +235,19 @@ function ReportRow({ row, rt, unread, onChange }: { row: Row; rt: TriggerRuntime
               }}
               style={{ display: "flex", flexDirection: "column", gap: 8 }}
             >
-              <label className="sp-sr" htmlFor={`sp-reply-${row.stored.id}`}>
+              <label className="tui-sr-only" htmlFor={`sp-reply-${row.stored.id}`}>
                 {t("status.reply")}
               </label>
-              <textarea
+              <Textarea
                 id={`sp-reply-${row.stored.id}`}
-                className="sp-textarea"
                 data-size="sm"
                 placeholder={t("status.replyPlaceholder")}
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
               />
-              <Submit className="sp-btn sp-btn-primary sp-btn-sm" busy={busy} busyLabel={t("submit.sending")}>
-                {t("status.send")}
-              </Submit>
+              <Button type="submit" size="sm" busy={busy}>
+                {busy ? t("submit.sending") : t("status.send")}
+              </Button>
             </form>
           )}
         </div>

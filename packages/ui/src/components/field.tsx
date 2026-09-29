@@ -5,7 +5,7 @@
  * `useFieldControl`) gets the field's id, `aria-describedby` pointing at the
  * hint and error, `aria-invalid` when there is an error, and `required`.
  */
-import { createContext, useContext, useId, type HTMLAttributes, type ReactNode } from "react";
+import { createContext, useContext, useId, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "../cn.ts";
 
 interface FieldContextValue {
@@ -28,8 +28,13 @@ export interface FieldProps extends Omit<HTMLAttributes<HTMLDivElement>, "childr
   optional?: boolean | ReactNode;
   /** Visually hide the label (it still names the control). */
   hideLabel?: boolean;
+  /** Extra props for the label and the error message (a class, a data attribute, a style). */
+  labelProps?: PartProps;
+  errorProps?: PartProps;
   children: ReactNode;
 }
+
+type PartProps = { className?: string; style?: CSSProperties; [data: `data-${string}`]: string | undefined };
 
 export function Field({
   label,
@@ -39,6 +44,8 @@ export function Field({
   required,
   optional,
   hideLabel,
+  labelProps,
+  errorProps,
   className,
   children,
   ...rest
@@ -52,7 +59,7 @@ export function Field({
     <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error), required: Boolean(required) }}>
       <div className={cn("tui-field", className)} {...rest}>
         <div className={cn("tui-label-row", hideLabel && "tui-sr-only")}>
-          <label className="tui-label" htmlFor={id}>
+          <label {...labelProps} className={cn("tui-label", labelProps?.className)} htmlFor={id}>
             {label}
             {required ? (
               <span className="tui-required" aria-hidden="true">
@@ -69,7 +76,7 @@ export function Field({
           </p>
         ) : null}
         {error ? (
-          <p className="tui-error" id={errorId} role="alert">
+          <p {...errorProps} className={cn("tui-error", errorProps?.className)} id={errorId} role="alert">
             {error}
           </p>
         ) : null}

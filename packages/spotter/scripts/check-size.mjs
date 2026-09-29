@@ -75,6 +75,7 @@ export async function bundle(entryContents, { define = {}, name = "entry" } = {}
       outdir: dir,
       define: { ...PRODUCTION_DEFINE, ...define },
       external: ["react", "react-dom", "react/jsx-runtime", "next", "next/*", "node:*"],
+      conditions: ["source"],
       jsx: "automatic",
       logLevel: "silent",
       absWorkingDir: pkg,

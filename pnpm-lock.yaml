@@ -51,6 +51,9 @@ importers:
       '@rrweb/types':
         specifier: 2.1.6
         version: 2.1.6
+      '@trusplex/ui':
+        specifier: workspace:*
+        version: link:../ui
       fflate:
         specifier: 0.8.3
         version: 0.8.3
