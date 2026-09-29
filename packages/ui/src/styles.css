@@ -563,10 +563,26 @@
   padding: 4px 9px;
   font-size: var(--tui-font-size-sm);
 }
+/* A bare <select class="tui-select"> draws its own chevron; inside the Select component's wrapper the icon does. */
 .tui-select {
   appearance: none;
   padding-inline-end: 34px;
   cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--tui-text-muted) 50%),
+    linear-gradient(135deg, var(--tui-text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.tui-select:dir(rtl) {
+  background-position:
+    12px 50%,
+    17px 50%;
+}
+.tui-select-wrap > .tui-select {
   background-image: none;
 }
 .tui-select-wrap,
