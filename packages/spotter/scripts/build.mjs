@@ -29,8 +29,8 @@ const walk = (dir) =>
 rmSync(dist, { recursive: true, force: true });
 
 // 1. TypeScript
-const tsc = join(pkg, "node_modules/.bin/tsc");
-const res = spawnSync(existsSync(tsc) ? tsc : "tsc", ["-p", "tsconfig.build.json"], { cwd: pkg, stdio: "inherit" });
+const tsc = join(pkg, "node_modules/typescript/bin/tsc");
+const res = spawnSync(process.execPath, [tsc, "-p", "tsconfig.build.json"], { cwd: pkg, stdio: "inherit" });
 if (res.status !== 0) fail("tsc failed");
 console.log("✓ tsc → dist/");
 

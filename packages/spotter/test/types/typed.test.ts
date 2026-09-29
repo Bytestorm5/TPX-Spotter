@@ -7,7 +7,7 @@
  * Each scenario is its own program, since an augmentation is global to one.
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
@@ -36,7 +36,7 @@ function compile(name: string, source: string): string[] {
   });
   return ts
     .getPreEmitDiagnostics(program)
-    .filter((d) => d.file?.fileName === file)
+    .filter((d) => d.file !== undefined && resolve(d.file.fileName) === resolve(file))
     .map((d) => `${d.start !== undefined ? d.file!.getLineAndCharacterOfPosition(d.start).line + 1 : "?"}: ${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`);
 }
 
