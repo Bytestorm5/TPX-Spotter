@@ -32,7 +32,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: spotter-dist
-          path: packages/spotter/dist
+          path: |
+            packages/spotter/dist
+            packages/ui/dist
           retention-days: 7
 
   e2e:

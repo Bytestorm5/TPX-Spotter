@@ -1,0 +1,1403 @@
+/* ===========================================================================
+   @trusplex/ui — the stylesheet.
+
+   The Spotter widget's design system for any app: every rule reads
+   `--tui-*` tokens, uses logical properties (RTL needs no overrides) and
+   drops motion under `prefers-reduced-motion`. Variants are data attributes
+   over local `--_*` variables, so an app adds its own in one rule:
+
+     .tui-badge[data-tone="taupe"] { --_bg: #f3ece6; --_fg: #6b5446; }
+
+   Theme with `createTheme()` + `themeCss()` from `@trusplex/ui/theme`, or
+   set `--tui-*` in your own CSS. The defaults below are wrapped in
+   `:where()` — zero specificity — so anything you write wins.
+   =========================================================================== */
+
+/* ---- tokens (generated from src/theme/tokens.ts; test/styles.test.ts keeps them in step) ---- */
+:where(:root) {
+  --tui-canvas: #fafafa;
+  --tui-bg: #ffffff;
+  --tui-surface: #f6f6f7;
+  --tui-surface-hover: #ededef;
+  --tui-border: #e4e4e7;
+  --tui-border-strong: #cfcfd4;
+  --tui-text: #18181b;
+  --tui-text-muted: #5d5d66;
+  --tui-primary: #18181b;
+  --tui-primary-hover: #303036;
+  --tui-primary-text: #ffffff;
+  --tui-primary-soft: #ededef;
+  --tui-primary-soft-text: #18181b;
+  --tui-danger: #c4262e;
+  --tui-danger-surface: #fdf0f0;
+  --tui-success: #18794e;
+  --tui-success-surface: #ecf8f1;
+  --tui-warning: #9a5b00;
+  --tui-warning-surface: #fdf4e3;
+  --tui-info: #1d5fd1;
+  --tui-info-surface: #edf3fd;
+  --tui-overlay: rgba(9, 9, 11, 0.45);
+  --tui-ring: #2563eb;
+  --tui-radius: 8px;
+  --tui-radius-button: 8px;
+  --tui-radius-chip: 999px;
+  --tui-radius-card: 12px;
+  --tui-radius-panel: 14px;
+  --tui-shadow-control: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --tui-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --tui-shadow-panel:
+    0 0 0 1px rgba(0, 0, 0, 0.04), 0 16px 40px -8px rgba(0, 0, 0, 0.18), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --tui-border-width: 1px;
+  --tui-font:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --tui-font-display:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --tui-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --tui-font-size: 14px;
+  --tui-font-size-sm: 13px;
+  --tui-font-size-xs: 12px;
+  --tui-weight-medium: 500;
+  --tui-weight-strong: 600;
+  --tui-control-height: 38px;
+  --tui-control-height-sm: 30px;
+  --tui-control-height-lg: 46px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :where(:root:not([data-theme="light"])) {
+    --tui-canvas: #111113;
+    --tui-bg: #1b1b1f;
+    --tui-surface: #26262b;
+    --tui-surface-hover: #2f2f35;
+    --tui-border: #34343b;
+    --tui-border-strong: #46464e;
+    --tui-text: #f4f4f5;
+    --tui-text-muted: #a8a8b3;
+    --tui-primary: #f4f4f5;
+    --tui-primary-hover: #dcdce0;
+    --tui-primary-text: #18181b;
+    --tui-primary-soft: #2f2f35;
+    --tui-primary-soft-text: #f4f4f5;
+    --tui-danger: #ff7a7a;
+    --tui-danger-surface: #3a1f22;
+    --tui-success: #4cc38a;
+    --tui-success-surface: #1b2e25;
+    --tui-warning: #f1b555;
+    --tui-warning-surface: #3a2e12;
+    --tui-info: #6ea8ff;
+    --tui-info-surface: #17233a;
+    --tui-overlay: rgba(0, 0, 0, 0.65);
+    --tui-ring: #6ea8ff;
+    --tui-radius: 8px;
+    --tui-radius-button: 8px;
+    --tui-radius-chip: 999px;
+    --tui-radius-card: 12px;
+    --tui-radius-panel: 14px;
+    --tui-shadow-control: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --tui-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.04);
+    --tui-shadow-panel:
+      0 0 0 1px rgba(0, 0, 0, 0.04), 0 16px 40px -8px rgba(0, 0, 0, 0.18), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+    --tui-border-width: 1px;
+    --tui-font:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+      "Apple Color Emoji", "Segoe UI Emoji";
+    --tui-font-display:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+      "Apple Color Emoji", "Segoe UI Emoji";
+    --tui-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --tui-font-size: 14px;
+    --tui-font-size-sm: 13px;
+    --tui-font-size-xs: 12px;
+    --tui-weight-medium: 500;
+    --tui-weight-strong: 600;
+    --tui-control-height: 38px;
+    --tui-control-height-sm: 30px;
+    --tui-control-height-lg: 46px;
+    color-scheme: dark;
+  }
+}
+:where([data-theme="light"]) {
+  --tui-canvas: #fafafa;
+  --tui-bg: #ffffff;
+  --tui-surface: #f6f6f7;
+  --tui-surface-hover: #ededef;
+  --tui-border: #e4e4e7;
+  --tui-border-strong: #cfcfd4;
+  --tui-text: #18181b;
+  --tui-text-muted: #5d5d66;
+  --tui-primary: #18181b;
+  --tui-primary-hover: #303036;
+  --tui-primary-text: #ffffff;
+  --tui-primary-soft: #ededef;
+  --tui-primary-soft-text: #18181b;
+  --tui-danger: #c4262e;
+  --tui-danger-surface: #fdf0f0;
+  --tui-success: #18794e;
+  --tui-success-surface: #ecf8f1;
+  --tui-warning: #9a5b00;
+  --tui-warning-surface: #fdf4e3;
+  --tui-info: #1d5fd1;
+  --tui-info-surface: #edf3fd;
+  --tui-overlay: rgba(9, 9, 11, 0.45);
+  --tui-ring: #2563eb;
+  --tui-radius: 8px;
+  --tui-radius-button: 8px;
+  --tui-radius-chip: 999px;
+  --tui-radius-card: 12px;
+  --tui-radius-panel: 14px;
+  --tui-shadow-control: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --tui-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --tui-shadow-panel:
+    0 0 0 1px rgba(0, 0, 0, 0.04), 0 16px 40px -8px rgba(0, 0, 0, 0.18), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --tui-border-width: 1px;
+  --tui-font:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --tui-font-display:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --tui-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --tui-font-size: 14px;
+  --tui-font-size-sm: 13px;
+  --tui-font-size-xs: 12px;
+  --tui-weight-medium: 500;
+  --tui-weight-strong: 600;
+  --tui-control-height: 38px;
+  --tui-control-height-sm: 30px;
+  --tui-control-height-lg: 46px;
+  color-scheme: light;
+}
+:where([data-theme="dark"]) {
+  --tui-canvas: #111113;
+  --tui-bg: #1b1b1f;
+  --tui-surface: #26262b;
+  --tui-surface-hover: #2f2f35;
+  --tui-border: #34343b;
+  --tui-border-strong: #46464e;
+  --tui-text: #f4f4f5;
+  --tui-text-muted: #a8a8b3;
+  --tui-primary: #f4f4f5;
+  --tui-primary-hover: #dcdce0;
+  --tui-primary-text: #18181b;
+  --tui-primary-soft: #2f2f35;
+  --tui-primary-soft-text: #f4f4f5;
+  --tui-danger: #ff7a7a;
+  --tui-danger-surface: #3a1f22;
+  --tui-success: #4cc38a;
+  --tui-success-surface: #1b2e25;
+  --tui-warning: #f1b555;
+  --tui-warning-surface: #3a2e12;
+  --tui-info: #6ea8ff;
+  --tui-info-surface: #17233a;
+  --tui-overlay: rgba(0, 0, 0, 0.65);
+  --tui-ring: #6ea8ff;
+  --tui-radius: 8px;
+  --tui-radius-button: 8px;
+  --tui-radius-chip: 999px;
+  --tui-radius-card: 12px;
+  --tui-radius-panel: 14px;
+  --tui-shadow-control: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --tui-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --tui-shadow-panel:
+    0 0 0 1px rgba(0, 0, 0, 0.04), 0 16px 40px -8px rgba(0, 0, 0, 0.18), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --tui-border-width: 1px;
+  --tui-font:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --tui-font-display:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --tui-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --tui-font-size: 14px;
+  --tui-font-size-sm: 13px;
+  --tui-font-size-xs: 12px;
+  --tui-weight-medium: 500;
+  --tui-weight-strong: 600;
+  --tui-control-height: 38px;
+  --tui-control-height-sm: 30px;
+  --tui-control-height-lg: 46px;
+  color-scheme: dark;
+}
+
+/* ---- base ---- */
+:where([class^="tui-"], [class*=" tui-"]),
+:where([class^="tui-"], [class*=" tui-"])::before,
+:where([class^="tui-"], [class*=" tui-"])::after {
+  box-sizing: border-box;
+}
+/* Opt in with class="tui" on a root (body, a layout): the kit's font and text colour. */
+.tui {
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size);
+  line-height: 1.5;
+  color: var(--tui-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.tui-canvas {
+  background: var(--tui-canvas);
+}
+.tui-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+:where(.tui-btn, .tui-icon-btn, .tui-chip, .tui-tab, .tui-details > summary, .tui-check input):focus-visible {
+  outline: 2px solid var(--tui-ring);
+  outline-offset: 2px;
+}
+.tui-subhead {
+  margin: 0;
+  font-size: var(--tui-font-size-xs);
+  font-weight: var(--tui-weight-strong);
+  color: var(--tui-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ---- Button ---- */
+.tui-btn {
+  --_bg: var(--tui-primary);
+  --_fg: var(--tui-primary-text);
+  --_bd: transparent;
+  --_bg-hover: var(--tui-primary-hover);
+  --_bd-hover: var(--_bd);
+  --_shadow: 0 1px 2px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: var(--tui-control-height);
+  padding: 0 14px;
+  margin: 0;
+  border-radius: var(--tui-radius-button);
+  border: var(--tui-border-width) solid var(--_bd);
+  background: var(--_bg);
+  color: var(--_fg);
+  box-shadow: var(--_shadow);
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size);
+  font-weight: var(--tui-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    color 0.12s,
+    box-shadow 0.12s,
+    opacity 0.12s,
+    transform 0.12s;
+}
+.tui-btn:hover {
+  text-decoration: none;
+}
+.tui-btn:not(:disabled, [aria-disabled="true"]):hover {
+  background: var(--_bg-hover);
+  border-color: var(--_bd-hover);
+}
+.tui-btn:not(:disabled, [aria-disabled="true"]):active {
+  transform: translateY(1px);
+}
+.tui-btn:disabled,
+.tui-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.tui-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.tui-btn[data-variant="secondary"] {
+  --_bg: var(--tui-bg);
+  --_fg: var(--tui-text);
+  --_bd: var(--tui-border);
+  --_bg-hover: var(--tui-surface);
+  --_bd-hover: var(--tui-border-strong);
+  --_shadow: var(--tui-shadow-control);
+}
+.tui-btn[data-variant="soft"] {
+  --_bg: var(--tui-primary-soft);
+  --_fg: var(--tui-primary-soft-text);
+  --_shadow: none;
+  --_bg-hover: color-mix(in srgb, var(--tui-primary-soft) 82%, var(--tui-primary));
+}
+.tui-btn[data-variant="ghost"] {
+  --_bg: transparent;
+  --_fg: var(--tui-text-muted);
+  --_shadow: none;
+  --_bg-hover: var(--tui-surface);
+}
+.tui-btn[data-variant="ghost"]:not(:disabled):hover {
+  color: var(--tui-text);
+}
+.tui-btn[data-variant="danger"] {
+  --_bg: var(--tui-danger-surface);
+  --_fg: var(--tui-danger);
+  --_shadow: none;
+  --_bg-hover: color-mix(in srgb, var(--tui-danger-surface) 80%, var(--tui-danger));
+  --_bd-hover: var(--tui-danger);
+}
+.tui-btn[data-variant="danger-solid"] {
+  --_bg: var(--tui-danger);
+  --_fg: var(--tui-bg);
+  --_bg-hover: color-mix(in srgb, var(--tui-danger) 88%, #000);
+}
+.tui-btn[data-size="sm"] {
+  height: var(--tui-control-height-sm);
+  padding: 0 10px;
+  gap: 6px;
+  font-size: var(--tui-font-size-sm);
+}
+.tui-btn[data-size="sm"] svg {
+  width: 15px;
+  height: 15px;
+}
+.tui-btn[data-size="lg"] {
+  height: var(--tui-control-height-lg);
+  padding: 0 20px;
+  gap: 8px;
+}
+.tui-btn[data-size="lg"] svg {
+  width: 18px;
+  height: 18px;
+}
+.tui-btn[data-block] {
+  display: flex;
+  width: 100%;
+}
+.tui-btn[aria-busy="true"] {
+  cursor: progress;
+}
+
+.tui-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: var(--tui-radius);
+  background: transparent;
+  color: var(--tui-text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.tui-icon-btn:hover {
+  background: var(--tui-surface);
+  color: var(--tui-text);
+}
+.tui-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+}
+.tui-icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.tui-icon-btn[data-size="sm"] {
+  width: 28px;
+  height: 28px;
+}
+.tui-icon-btn[data-size="sm"] svg {
+  width: 15px;
+  height: 15px;
+}
+.tui-icon-btn[data-size="lg"] {
+  width: 40px;
+  height: 40px;
+}
+.tui-icon-btn[data-size="lg"] svg {
+  width: 20px;
+  height: 20px;
+}
+.tui-icon-btn[data-shape="circle"] {
+  border-radius: 50%;
+}
+
+.tui-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--tui-weight-medium);
+  text-decoration: underline;
+  text-decoration-color: var(--tui-border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.tui-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.tui-spinner {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: tui-spin 0.7s linear infinite;
+}
+
+/* ---- Field ---- */
+.tui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.tui-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tui-label {
+  font-size: var(--tui-font-size-sm);
+  font-weight: var(--tui-weight-medium);
+  color: var(--tui-text);
+  line-height: 1.3;
+}
+.tui-required {
+  color: var(--tui-danger);
+  margin-inline-start: 2px;
+}
+.tui-optional {
+  font-size: var(--tui-font-size-xs);
+  color: var(--tui-text-muted);
+}
+.tui-hint {
+  margin: 0;
+  font-size: var(--tui-font-size-xs);
+  color: var(--tui-text-muted);
+  line-height: 1.4;
+}
+.tui-error {
+  margin: 0;
+  font-size: var(--tui-font-size-xs);
+  font-weight: var(--tui-weight-medium);
+  color: var(--tui-danger);
+  line-height: 1.4;
+}
+
+/* ---- Input, Textarea, Select ---- */
+.tui-input,
+.tui-textarea,
+.tui-select {
+  width: 100%;
+  min-height: var(--tui-control-height);
+  margin: 0;
+  padding: 8px 11px;
+  border: var(--tui-border-width) solid var(--tui-border-strong);
+  border-radius: var(--tui-radius);
+  background: var(--tui-bg);
+  color: var(--tui-text);
+  box-shadow: var(--tui-shadow-control);
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size);
+  line-height: 1.45;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.tui-textarea {
+  min-height: 104px;
+  resize: vertical;
+  display: block;
+}
+.tui-input::placeholder,
+.tui-textarea::placeholder {
+  color: var(--tui-text-muted);
+  opacity: 1;
+}
+.tui-input:hover,
+.tui-textarea:hover,
+.tui-select:hover {
+  border-color: var(--tui-text-muted);
+}
+.tui-input:focus-visible,
+.tui-textarea:focus-visible,
+.tui-select:focus-visible,
+.tui-input:focus,
+.tui-textarea:focus,
+.tui-select:focus {
+  outline: none;
+  border-color: var(--tui-ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tui-ring) 22%, transparent);
+}
+.tui-input[aria-invalid="true"],
+.tui-textarea[aria-invalid="true"],
+.tui-select[aria-invalid="true"] {
+  border-color: var(--tui-danger);
+}
+.tui-input:disabled,
+.tui-textarea:disabled,
+.tui-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.tui-input[data-size="sm"],
+.tui-select[data-size="sm"] {
+  min-height: var(--tui-control-height-sm);
+  padding: 4px 9px;
+  font-size: var(--tui-font-size-sm);
+}
+.tui-select {
+  appearance: none;
+  padding-inline-end: 34px;
+  cursor: pointer;
+  background-image: none;
+}
+.tui-select-wrap,
+.tui-input-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.tui-select-wrap > svg,
+.tui-input-wrap > svg {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  pointer-events: none;
+  color: var(--tui-text-muted);
+}
+.tui-select-wrap > svg {
+  inset-inline-end: 10px;
+}
+.tui-input-wrap > svg {
+  inset-inline-start: 11px;
+}
+.tui-input-wrap > svg ~ .tui-input {
+  padding-inline-start: 34px;
+}
+
+/* ---- Checkbox / Radio ---- */
+.tui-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: var(--tui-font-size);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.tui-check input {
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  border: var(--tui-border-width) solid var(--tui-border-strong);
+  border-radius: 5px;
+  background: var(--tui-bg);
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s;
+}
+.tui-check input[type="radio"] {
+  border-radius: 50%;
+}
+.tui-check input::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border: 2px solid var(--tui-primary-text);
+  border-top: 0;
+  border-right: 0;
+  transform: rotate(-45deg) translateX(1px) translateY(-1px);
+  opacity: 0;
+}
+.tui-check input[type="radio"]::after {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--tui-primary-text);
+  transform: none;
+}
+.tui-check input:checked {
+  background: var(--tui-primary);
+  border-color: var(--tui-primary);
+}
+.tui-check input:checked::after {
+  opacity: 1;
+}
+.tui-check input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tui-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ---- Chips ---- */
+.tui-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--tui-control-height-sm);
+  padding: 0 11px;
+  margin: 0;
+  border-radius: var(--tui-radius-chip);
+  border: var(--tui-border-width) solid var(--tui-border);
+  background: var(--tui-bg);
+  color: var(--tui-text);
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size-sm);
+  font-weight: var(--tui-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.tui-chip:hover {
+  border-color: var(--tui-border-strong);
+  background: var(--tui-surface);
+  text-decoration: none;
+}
+.tui-chip[aria-pressed="true"],
+.tui-chip[aria-checked="true"],
+.tui-chip[aria-current] {
+  background: var(--tui-primary);
+  border-color: var(--tui-primary);
+  color: var(--tui-primary-text);
+}
+.tui-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tui-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- Badge ---- */
+.tui-badge {
+  --_bg: var(--tui-surface);
+  --_fg: var(--tui-text-muted);
+  --_bd: var(--tui-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--_bd);
+  background: var(--_bg);
+  color: var(--_fg);
+  font-size: 11px;
+  font-weight: var(--tui-weight-strong);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.tui-badge[data-dot]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.tui-badge[data-tone="accent"] {
+  --_bg: var(--tui-primary-soft);
+  --_fg: var(--tui-primary-soft-text);
+  --_bd: transparent;
+}
+.tui-badge[data-tone="success"] {
+  --_bg: var(--tui-success-surface);
+  --_fg: var(--tui-success);
+  --_bd: transparent;
+}
+.tui-badge[data-tone="warning"] {
+  --_bg: var(--tui-warning-surface);
+  --_fg: var(--tui-warning);
+  --_bd: transparent;
+}
+.tui-badge[data-tone="danger"] {
+  --_bg: var(--tui-danger-surface);
+  --_fg: var(--tui-danger);
+  --_bd: transparent;
+}
+.tui-badge[data-tone="info"] {
+  --_bg: var(--tui-info-surface);
+  --_fg: var(--tui-info);
+  --_bd: transparent;
+}
+.tui-badge[data-tone="solid"] {
+  --_bg: var(--tui-primary);
+  --_fg: var(--tui-primary-text);
+  --_bd: transparent;
+}
+.tui-badge[data-size="md"] {
+  height: 24px;
+  padding: 0 10px;
+  font-size: var(--tui-font-size-xs);
+}
+
+/* ---- Card ---- */
+.tui-card {
+  --_bg: var(--tui-bg);
+  --_bd: var(--tui-border);
+  --_shadow: var(--tui-shadow-card);
+  background: var(--_bg);
+  color: var(--tui-text);
+  border: var(--tui-border-width) solid var(--_bd);
+  border-radius: var(--tui-radius-card);
+  box-shadow: var(--_shadow);
+  padding: 20px;
+  min-width: 0;
+}
+.tui-card[data-variant="soft"] {
+  --_bg: var(--tui-surface);
+  --_shadow: none;
+}
+.tui-card[data-variant="flat"] {
+  --_shadow: none;
+}
+.tui-card[data-padding="none"] {
+  padding: 0;
+  overflow: hidden;
+}
+.tui-card[data-padding="sm"] {
+  padding: 14px;
+}
+.tui-card[data-padding="lg"] {
+  padding: 28px;
+}
+.tui-card[data-interactive] {
+  cursor: pointer;
+  transition:
+    box-shadow 0.18s,
+    border-color 0.18s,
+    transform 0.18s;
+}
+.tui-card[data-interactive]:hover {
+  border-color: var(--tui-border-strong);
+  box-shadow: var(--tui-shadow-panel);
+  transform: translateY(-2px);
+}
+.tui-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.tui-card-heading {
+  min-width: 0;
+}
+.tui-card-title {
+  margin: 0;
+  font-family: var(--tui-font-display);
+  font-size: 15px;
+  font-weight: var(--tui-weight-strong);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.tui-card-description {
+  margin: 4px 0 0;
+  font-size: var(--tui-font-size-sm);
+  color: var(--tui-text-muted);
+}
+.tui-card-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.tui-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tui-border);
+}
+
+/* ---- Notice ---- */
+.tui-notice {
+  --_bg: var(--tui-surface);
+  --_fg: var(--tui-text);
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--tui-radius);
+  background: var(--_bg);
+  color: var(--_fg);
+  font-size: var(--tui-font-size-sm);
+  line-height: 1.45;
+}
+.tui-notice > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+.tui-notice-body {
+  flex: 1;
+  min-width: 0;
+}
+.tui-notice-title {
+  margin: 0 0 2px;
+  font-weight: var(--tui-weight-strong);
+}
+.tui-notice[data-tone="danger"] {
+  --_bg: var(--tui-danger-surface);
+  --_fg: var(--tui-danger);
+}
+.tui-notice[data-tone="success"] {
+  --_bg: var(--tui-success-surface);
+  --_fg: var(--tui-success);
+}
+.tui-notice[data-tone="warning"] {
+  --_bg: var(--tui-warning-surface);
+  --_fg: var(--tui-warning);
+}
+.tui-notice[data-tone="info"] {
+  --_bg: var(--tui-info-surface);
+  --_fg: var(--tui-info);
+}
+
+/* ---- List ---- */
+.tui-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--tui-border-width) solid var(--tui-border);
+  border-radius: calc(var(--tui-radius) + 2px);
+  overflow: hidden;
+}
+.tui-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  min-height: 48px;
+  background: var(--tui-bg);
+}
+.tui-list-item + .tui-list-item {
+  border-top: 1px solid var(--tui-border);
+}
+.tui-list-item[data-interactive] {
+  cursor: pointer;
+}
+.tui-list-item[data-interactive]:hover {
+  background: var(--tui-surface);
+}
+.tui-list-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tui-list-title {
+  font-size: var(--tui-font-size-sm);
+  font-weight: var(--tui-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tui-list-meta {
+  font-size: var(--tui-font-size-xs);
+  color: var(--tui-text-muted);
+}
+.tui-list-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: var(--tui-surface);
+  color: var(--tui-text-muted);
+}
+.tui-list-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---- Details (disclosure) ---- */
+.tui-details {
+  border: var(--tui-border-width) solid var(--tui-border);
+  border-radius: calc(var(--tui-radius) + 2px);
+  background: var(--tui-bg);
+}
+.tui-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: var(--tui-font-size-sm);
+  font-weight: var(--tui-weight-medium);
+  cursor: pointer;
+  list-style: none;
+  border-radius: inherit;
+}
+.tui-details > summary::-webkit-details-marker {
+  display: none;
+}
+.tui-details > summary > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--tui-text-muted);
+  transition: transform 0.15s;
+}
+.tui-details[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.tui-details-body {
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- Key/value, code ---- */
+.tui-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: var(--tui-font-size-sm);
+}
+.tui-kv dt {
+  color: var(--tui-text-muted);
+}
+.tui-kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tui-kv[data-mono] dd {
+  font-family: var(--tui-font-mono);
+  font-size: var(--tui-font-size-xs);
+}
+.tui-code {
+  font: var(--tui-font-size-xs)/1.5 var(--tui-font-mono);
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--tui-surface);
+  color: var(--tui-text);
+  overflow-wrap: anywhere;
+}
+code.tui-code {
+  display: inline;
+  padding: 1px 5px;
+}
+
+/* ---- Dialog ---- */
+.tui-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(16px, 6vh, 64px) 16px;
+  background: var(--tui-overlay);
+  overflow-y: auto;
+  animation: tui-fade 0.18s ease-out both;
+}
+.tui-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  background: var(--tui-bg);
+  color: var(--tui-text);
+  border: var(--tui-border-width) solid var(--tui-border);
+  border-radius: var(--tui-radius-panel);
+  box-shadow: var(--tui-shadow-panel);
+  animation: tui-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size);
+}
+.tui-dialog:focus {
+  outline: none;
+}
+.tui-dialog[data-size="sm"] {
+  max-width: 26rem;
+}
+.tui-dialog[data-size="lg"] {
+  max-width: 48rem;
+}
+.tui-dialog[data-size="xl"] {
+  max-width: 64rem;
+}
+.tui-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 14px 20px;
+  border-bottom: 1px solid var(--tui-border);
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+.tui-dialog-heading {
+  min-width: 0;
+  padding-top: 4px;
+}
+.tui-dialog-title {
+  margin: 0;
+  font-family: var(--tui-font-display);
+  font-size: 17px;
+  font-weight: var(--tui-weight-strong);
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+.tui-dialog-subtitle {
+  margin: 4px 0 0;
+  font-size: var(--tui-font-size-sm);
+  color: var(--tui-text-muted);
+}
+.tui-dialog[data-tone="danger"] .tui-dialog-header {
+  background: var(--tui-danger-surface);
+}
+.tui-dialog[data-tone="danger"] .tui-dialog-title {
+  color: var(--tui-danger);
+}
+.tui-dialog-body {
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.tui-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--tui-border);
+}
+@media (max-width: 520px) {
+  .tui-overlay {
+    padding: 40px 0 0;
+    align-items: flex-end;
+  }
+  .tui-dialog {
+    margin: auto 0 0;
+    max-width: none !important;
+    max-height: calc(100vh - 40px);
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+    border-bottom: 0;
+    animation-name: tui-sheet;
+  }
+}
+
+/* ---- Tabs (underline) ---- */
+.tui-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--tui-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.tui-tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0 0 -1px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--tui-text-muted);
+  white-space: nowrap;
+  text-decoration: none;
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size-sm);
+  font-weight: var(--tui-weight-medium);
+  transition:
+    color 0.12s,
+    border-color 0.12s;
+}
+.tui-tab:hover {
+  color: var(--tui-text);
+  text-decoration: none;
+}
+.tui-tab[aria-current],
+.tui-tab[aria-selected="true"] {
+  color: var(--tui-text);
+  border-bottom-color: var(--tui-primary);
+}
+
+/* ---- Avatar ---- */
+.tui-avatar {
+  --_bg: var(--tui-primary-soft);
+  --_fg: var(--tui-primary-soft-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  overflow: hidden;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--_bg);
+  color: var(--_fg);
+  font-size: var(--tui-font-size-sm);
+  font-weight: var(--tui-weight-strong);
+  line-height: 1;
+  user-select: none;
+}
+.tui-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tui-avatar[data-size="sm"] {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+.tui-avatar[data-size="lg"] {
+  width: 48px;
+  height: 48px;
+  font-size: var(--tui-font-size);
+}
+.tui-avatar[data-tone="neutral"] {
+  --_bg: var(--tui-surface-hover);
+  --_fg: var(--tui-text-muted);
+}
+
+/* ---- Skeleton ---- */
+.tui-skeleton {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  vertical-align: middle;
+  width: 100%;
+  height: 1em;
+  border-radius: 6px;
+  background: var(--tui-surface-hover);
+}
+.tui-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--tui-bg) 55%, transparent) 50%,
+    transparent 70%
+  );
+  animation: tui-shimmer 1.2s ease-in-out infinite;
+}
+
+/* ---- Stat ---- */
+.tui-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.tui-stat-icon {
+  --_bg: var(--tui-primary-soft);
+  --_fg: var(--tui-primary-soft-text);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--_bg);
+  color: var(--_fg);
+}
+.tui-stat-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.tui-stat-icon[data-tone="success"] {
+  --_bg: var(--tui-success-surface);
+  --_fg: var(--tui-success);
+}
+.tui-stat-icon[data-tone="neutral"] {
+  --_bg: var(--tui-surface-hover);
+  --_fg: var(--tui-text-muted);
+}
+.tui-stat-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tui-stat-value {
+  font-family: var(--tui-font-display);
+  font-size: 22px;
+  font-weight: var(--tui-weight-strong);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.tui-stat-delta {
+  margin-inline-start: 6px;
+  font-family: var(--tui-font);
+  font-size: var(--tui-font-size-xs);
+  font-weight: var(--tui-weight-strong);
+  color: var(--tui-success);
+}
+.tui-stat-delta[data-down] {
+  color: var(--tui-danger);
+}
+.tui-stat-label {
+  font-size: var(--tui-font-size-sm);
+  color: var(--tui-text-muted);
+}
+
+/* ---- Table ---- */
+.tui-table-wrap {
+  overflow-x: auto;
+}
+.tui-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tui-font-size-sm);
+}
+.tui-table th {
+  padding: 10px 12px;
+  text-align: start;
+  font-size: var(--tui-font-size-xs);
+  font-weight: var(--tui-weight-strong);
+  color: var(--tui-text-muted);
+  border-bottom: 1px solid var(--tui-border);
+  white-space: nowrap;
+}
+.tui-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--tui-border);
+  vertical-align: middle;
+}
+.tui-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.tui-table tbody tr[data-interactive] {
+  cursor: pointer;
+}
+.tui-table tbody tr:hover td {
+  background: var(--tui-surface);
+}
+.tui-table [data-numeric] {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Empty state ---- */
+.tui-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 40px 20px;
+}
+.tui-empty-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--tui-surface);
+  color: var(--tui-text-muted);
+}
+.tui-empty-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.tui-empty-title {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: var(--tui-weight-strong);
+}
+.tui-empty-description {
+  margin: 0;
+  max-width: 42ch;
+  font-size: var(--tui-font-size-sm);
+  color: var(--tui-text-muted);
+}
+.tui-empty-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@keyframes tui-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes tui-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@keyframes tui-sheet {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes tui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes tui-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class^="tui-"],
+  [class*=" tui-"],
+  [class^="tui-"]::before,
+  [class^="tui-"]::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
