@@ -7,7 +7,7 @@
  */
 
 /** Kept in sync with package.json (a test asserts it). */
-export const SDK_VERSION = "0.1.0";
+export const SDK_VERSION = "0.1.1";
 export const SDK_NAME = "@trusplex/spotter" as const;
 
 const SESSION_KEY = "spotter:sid";
