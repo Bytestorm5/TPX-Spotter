@@ -1,7 +1,7 @@
 {
   "name": "tpx-spotter",
   "private": true,
-  "description": "Spotter \u2014 the embeddable issue-capture SDK (@trusplex/spotter), the Trusplex component kit (@trusplex/ui), and their fixture apps.",
+  "description": "Spotter — the embeddable issue-capture SDK (@trusplex/spotter) and its fixture apps.",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=22.22.0"
@@ -9,7 +9,7 @@
   "scripts": {
     "build": "pnpm --filter @trusplex/ui --filter @trusplex/spotter build",
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
-    "test": "pnpm --filter @trusplex/ui --filter @trusplex/spotter test",
+    "test": "pnpm --filter @trusplex/spotter test",
     "test:e2e": "pnpm --filter spotter-fixture-next test:e2e",
     "check:size": "pnpm --filter @trusplex/spotter check:size",
     "check:features": "pnpm --filter @trusplex/spotter check:features",
