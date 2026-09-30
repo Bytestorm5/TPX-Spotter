@@ -14,7 +14,9 @@
     "check:size": "pnpm --filter @trusplex/spotter check:size",
     "check:features": "pnpm --filter @trusplex/spotter check:features",
     "check": "pnpm build && pnpm typecheck && pnpm test && pnpm check:size && pnpm check:features",
-    "publish:all": "pnpm build && pnpm check && pnpm --filter @trusplex/ui publish && pnpm --filter @trusplex/spotter publish"
+    "publish:ui": "pnpm --filter @trusplex/ui build && pnpm --filter @trusplex/ui publish",
+    "publish:spotter": "pnpm --filter @trusplex/ui --filter @trusplex/spotter build && pnpm --filter @trusplex/spotter publish",
+    "publish:all": "pnpm check && pnpm publish:ui && pnpm publish:spotter"
   },
   "devDependencies": {
     "typescript": "5.9.3"
