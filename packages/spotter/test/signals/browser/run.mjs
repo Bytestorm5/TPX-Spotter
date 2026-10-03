@@ -147,6 +147,19 @@ const segJson = strFromU8(gunzipSync(Uint8Array.from(sampled.segments[0]?.data ?
 check(sampled.seq === 0 && sampled.segments.length === 1, `sampled mode streamed segment #${sampled.seq} (${sampled.segments[0]?.bytes} bytes gz)`);
 check(JSON.parse(segJson).some((e) => e.type === 2), "first sampled segment starts with a full snapshot");
 check(!segJson.includes("csp-secret"), "sampled segment masks typed input");
+// An in-app navigation: marked at once, and the new page snapshotted once it has settled.
+await page2.evaluate(() => {
+  history.pushState({}, "", "?view=receipt");
+  const p = document.createElement("p");
+  p.textContent = "Receipt page";
+  document.body.append(p);
+});
+await page2.waitForTimeout(1800);
+const afterNav = await page2.evaluate(() => window.__spotter.sampledSegment());
+const navEvents = JSON.parse(strFromU8(gunzipSync(Uint8Array.from(afterNav.segments.at(-1)?.data ?? []))));
+const navAt = navEvents.findIndex((e) => e.type === 5 && e.data?.tag === "spotter:navigation");
+check(navAt >= 0 && String(navEvents[navAt].data.payload.href).includes("view=receipt"), "an in-app navigation is marked in the replay");
+check(navEvents.slice(navAt).some((e) => e.type === 2), "the new page gets its own full snapshot in sampled mode");
 const path2 = await page2.evaluate(() => window.__spotter.compressionPath());
 check(path2 === "sync", `CSP-blocked worker falls back to gzipSync (path: ${path2})`);
 check(errors2.length === 0, `no page errors under CSP ${errors2.join("; ")}`);

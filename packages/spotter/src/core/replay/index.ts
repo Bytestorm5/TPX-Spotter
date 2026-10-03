@@ -7,6 +7,12 @@
  *   uncaught errors and flags.
  * - `sampled`: the whole session, streamed as ~10 s gzip segments.
  *
+ * In-app navigations (pushState / popstate) are marked with a
+ * `spotter:navigation` custom event, so Console attributes what follows to
+ * the right page. In sampled mode the new page also gets a full snapshot
+ * once it has settled (NAV_SNAPSHOT_MS after the last navigation): a picture
+ * of every page a sampled session visits, which Console draws heatmaps on.
+ *
  * Privacy is enforced in the recorder, before anything leaves the page:
  * every input value is masked (password values are dropped entirely, even
  * their length); `maskText` masks inputs only, or all text; `data-spotter-mask`
@@ -42,6 +48,8 @@ export interface StartReplayOptions {
 const SEGMENT_MS = 10_000;
 const MIN_ERROR_UPLOAD_GAP_MS = 10_000;
 const MAX_PENDING_BYTES = 5 * 1024 * 1024;
+/** How long after an in-app navigation the new page is snapshotted (sampled mode): long enough for it to render. */
+export const NAV_SNAPSHOT_MS = 1500;
 
 /** `a:not(b, c)` — or `a` when nothing is opted back in. */
 function except(tag: string, optIn: string[] | undefined): string {
@@ -101,6 +109,31 @@ export async function startReplay(rt: Runtime, options: StartReplayOptions): Pro
   let segmentTimer: ReturnType<typeof setInterval> | null = null;
   let uploading: Promise<unknown> = Promise.resolve();
   const cleanups: (() => void)[] = [];
+  const hrefNow = () => location.href.split("#")[0] ?? location.href;
+  let lastHref = hrefNow();
+  let navTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Called from emit: SPA routers change the URL and then mutate the DOM, so any event after a change notices it. */
+  const checkNavigation = () => {
+    const href = hrefNow();
+    if (href === lastHref) return;
+    lastHref = href;
+    // Outside rrweb's emit call stack.
+    setTimeout(() => {
+      if (stopped) return;
+      try {
+        record.addCustomEvent("spotter:navigation", { href: rt.redactUrl(href) });
+      } catch {
+        /* recorder not ready */
+      }
+    }, 0);
+    if (mode !== "sampled") return;
+    if (navTimer) clearTimeout(navTimer);
+    navTimer = setTimeout(() => {
+      navTimer = null;
+      if (!stopped) record.takeFullSnapshot(true);
+    }, NAV_SNAPSHOT_MS);
+  };
 
   const fault = (error: unknown) => {
     try {
@@ -128,6 +161,7 @@ export async function startReplay(rt: Runtime, options: StartReplayOptions): Pro
         pendingBytes += estimateEventSize(event);
         if (pendingBytes > MAX_PENDING_BYTES) void sendSegment();
       }
+      checkNavigation();
       // Every mode keeps the rolling window: it's what a report attaches and what the timeline reads.
       const needsCheckout = buffer.push(event, isCheckout);
       if (needsCheckout && event.timestamp - lastCheckoutRequest > 5000) {
@@ -237,6 +271,7 @@ export async function startReplay(rt: Runtime, options: StartReplayOptions): Pro
       /* ignore */
     }
     if (segmentTimer) clearInterval(segmentTimer);
+    if (navTimer) clearTimeout(navTimer);
     for (const fn of cleanups.splice(0)) fn();
     buffer.clear();
     pending = [];

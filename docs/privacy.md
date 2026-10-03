@@ -81,7 +81,9 @@ In most setups:
 - **Sampled full-session replay** records sessions nobody reported. Where the
   law requires consent for that (ePrivacy / GDPR in the EU and UK, for
   example), start with `setConsent({ replay: false })` before `init` and
-  switch it on after opt-in.
+  switch it on after opt-in. A sampled session also takes a fresh, equally
+  masked snapshot of each page it navigates to within the app; Console draws
+  click heatmaps on them.
 - **Cookieless analytics** stores nothing on the device and sends no personal
   data, so in most setups no consent banner is required for it. Check with
   your counsel before relying on that; we document it rather than promise it.
