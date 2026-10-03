@@ -32,6 +32,12 @@ describe("withSpotter", () => {
     expect(cfg.env?.NEXT_PUBLIC_SPOTTER_ENVIRONMENT).toBe("production");
   });
 
+  it("tells the browser SDK to send slashed paths when Next adds trailing slashes", () => {
+    const typesPath = join(tmp(), "t.d.ts");
+    expect(withSpotter({ trailingSlash: true }, { typesPath }).env?.NEXT_PUBLIC_SPOTTER_TRAILING_SLASH).toBe("1");
+    expect(withSpotter({}, { typesPath }).env?.NEXT_PUBLIC_SPOTTER_TRAILING_SLASH).toBeUndefined();
+  });
+
   it("keeps the user's compiler options, defines and env (theirs win)", () => {
     const cfg = withSpotter(
       { compiler: { removeConsole: true, define: { __SPOTTER_DEV__: true, FOO: "1" } }, env: { NEXT_PUBLIC_SPOTTER_PROJECT: "pk_mine" } },

@@ -4,7 +4,7 @@ import { backoffDelay, HttpError, isRetryable, parseRetryAfter, withRetry } from
 import { createQueue, memoryQueue } from "../../src/core/transport/queue.ts";
 import { drainQueue, uploadAndComplete } from "../../src/core/transport/deliver.ts";
 import { createTestTransport } from "../../src/core/testing.ts";
-import type { ReportReceipt, ReportSubmission } from "../../src/core/schema.ts";
+import type { AnalyticsBatch, ReportReceipt, ReportSubmission } from "../../src/core/schema.ts";
 
 const noSleep = { sleep: async () => {}, random: () => 0.5 };
 
@@ -82,6 +82,38 @@ function fakeIngest(opts: { failPutAt?: number[] } = {}) {
 }
 
 describe("http transport", () => {
+  it("ends every path with a slash when asked, before the query, and leaves absolute upload URLs alone", async () => {
+    const urls: string[] = [];
+    const t = createHttpTransport({
+      endpoint: "https://shop.test/api/spotter/",
+      project: "pk_test_12345678",
+      trailingSlash: true,
+      sendBeacon: () => false,
+      fetch: async (u, init) => {
+        urls.push(`${init?.method ?? "GET"} ${String(u)}`);
+        if (String(u).includes("/status")) return Response.json({ status: "received", messages: [] });
+        return Response.json({ id: "r1", ref: "SPT-1", token: "tok", uploads: [] }, { status: 201 });
+      },
+    });
+    const receipt = await t.submit({ clientId: "c" } as ReportSubmission);
+    await t.upload(receipt, "a.bin", new Uint8Array([1]), "application/octet-stream");
+    await t.upload(
+      { ...receipt, uploads: [{ name: "b.bin", url: "https://uploads.test/b.bin" }] },
+      "b.bin",
+      new Uint8Array([1]),
+      "application/octet-stream",
+    );
+    await t.status("r1", "tok");
+    await t.events({ events: [], sdk: { name: "@trusplex/spotter", version: "0", features: [] } } satisfies AnalyticsBatch, { beacon: true });
+    expect(urls).toEqual([
+      "POST https://shop.test/api/spotter/v1/reports/",
+      "PUT https://shop.test/api/spotter/v1/reports/r1/artifacts/a.bin/?offset=0&total=1",
+      "PUT https://uploads.test/b.bin?offset=0&total=1",
+      "GET https://shop.test/api/spotter/v1/reports/r1/status/?token=tok",
+      "POST https://shop.test/api/spotter/v1/events/",
+    ]);
+  });
+
   it("sends the public key header and JSON on submit", async () => {
     const seen: RequestInit[] = [];
     const t = createHttpTransport({
