@@ -17,6 +17,7 @@
  * recording and analytics are their own lazy chunks behind `FEATURE_*`.
  */
 import { installActions } from "./capture/actions.ts";
+import { cssSelector } from "./selector.ts";
 import { installConsole } from "./capture/console.ts";
 import { installErrors, rawError, type RawError } from "./capture/errors.ts";
 import { installNavigation } from "./capture/navigation.ts";
@@ -188,6 +189,7 @@ export function createEngine(host: EngineHost): Engine {
     release,
     consent: () => host.consent(),
     routePattern,
+    selector: cssSelector,
   };
 
   function install<T>(name: string, fn: () => Signal<T>): void {

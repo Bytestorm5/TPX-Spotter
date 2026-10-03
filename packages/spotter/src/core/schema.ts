@@ -488,7 +488,7 @@ export interface FlagBatch {
 
 // -- analytics ------------------------------------------------------------------------
 
-export const ANALYTICS_EVENT_TYPES = ["pageview", "event", "engagement", "vitals"] as const;
+export const ANALYTICS_EVENT_TYPES = ["pageview", "event", "engagement", "vitals", "click"] as const;
 export type AnalyticsEventType = (typeof ANALYTICS_EVENT_TYPES)[number];
 
 export interface AnalyticsEvent {
@@ -510,6 +510,12 @@ export interface AnalyticsEvent {
   scrollDepth?: number;
   /** `vitals`: field data for the pageview. */
   vitals?: { lcp?: number; inp?: number; cls?: number; ttfb?: number; fcp?: number };
+  /**
+   * `click` (heatmaps): where a pointer click landed, as a fraction of the
+   * document's width and height (0–1), and a short stable selector for what
+   * was clicked. Never the element's text or any input value.
+   */
+  click?: { x: number; y: number; selector?: string };
   /** Page-scoped id linking pageview, engagement and vitals. */
   pageviewId: string;
   /** Cookie mode only: the first-party visitor id. Cookieless mode never sends one. */

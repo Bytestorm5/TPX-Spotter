@@ -81,6 +81,11 @@ export interface AnalyticsConfig {
   downloadExtensions?: string[];
   /** Report a 404: a function of the document, or a selector whose presence means 404. */
   notFound?: string | (() => boolean);
+  /**
+   * Send pointer clicks (`click` events: page-relative position and a
+   * selector, never text) so Console can draw an activity heatmap. Default on.
+   */
+  heatmap?: boolean;
 }
 
 export interface CaptureConfig {

@@ -2,6 +2,7 @@ import type { ErrorEntry, Json, NavigationEntry, ReleaseInfo } from "../../src/c
 import type { SpotterConfig } from "../../src/core/types.ts";
 import type { Runtime } from "../../src/core/internal.ts";
 import { createRedactor, type Redactor } from "../../src/core/redact.ts";
+import { cssSelector } from "../../src/core/selector.ts";
 import type { RawCrumb } from "../../src/core/internal.ts";
 
 export interface TestRuntime extends Runtime {
@@ -56,6 +57,7 @@ export function testRuntime(config: SpotterConfig = {}, clockStart = Date.UTC(20
     release: (): ReleaseInfo => ({ version: "1.2.3" }),
     consent: () => rt.consentState,
     routePattern: () => undefined,
+    selector: cssSelector,
   };
   return rt;
 }

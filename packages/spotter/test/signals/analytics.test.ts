@@ -260,6 +260,62 @@ describe("startAnalytics", () => {
   });
 });
 
+describe("heatmap clicks", () => {
+  const sizeDocument = (width: number, height: number) => {
+    Object.defineProperty(document.documentElement, "scrollWidth", { value: width, configurable: true });
+    Object.defineProperty(document.documentElement, "scrollHeight", { value: height, configurable: true });
+  };
+  const click = (el: Element, init: { pageX: number; pageY: number; detail?: number }) => {
+    const ev = new MouseEvent("click", { bubbles: true, composed: true, detail: init.detail ?? 1 });
+    Object.defineProperty(ev, "pageX", { value: init.pageX });
+    Object.defineProperty(ev, "pageY", { value: init.pageY });
+    el.dispatchEvent(ev);
+  };
+  afterEach(() => {
+    delete (document.documentElement as unknown as Record<string, unknown>).scrollWidth;
+    delete (document.documentElement as unknown as Record<string, unknown>).scrollHeight;
+  });
+
+  it("sends each pointer click as a page-relative position and the selector of what was clicked, never its text", () => {
+    sizeDocument(1000, 4000);
+    document.body.innerHTML = '<main><button data-testid="buy"><span>Buy for ada@example.com</span></button></main>';
+    ctl = startAnalytics(rt, {}, send);
+    click(document.querySelector("span")!, { pageX: 250, pageY: 1000 });
+    ctl.flush();
+    const clicks = all().filter((e) => e.type === "click");
+    expect(clicks).toHaveLength(1);
+    expect(clicks[0]).toMatchObject({ click: { x: 0.25, y: 0.25, selector: '[data-testid="buy"]' } });
+    expect(clicks[0]?.pageviewId).toBe(all()[0]?.pageviewId);
+    expect(JSON.stringify(clicks)).not.toContain("ada@example.com");
+  });
+
+  it("skips keyboard-activated clicks, Spotter's own UI, and anything past the per-page cap", () => {
+    sizeDocument(1000, 1000);
+    document.body.innerHTML = '<button id="go">Go</button><div data-spotter-ui><button id="widget">Report</button></div>';
+    ctl = startAnalytics(rt, {}, send);
+    click(document.getElementById("go")!, { pageX: 10, pageY: 10, detail: 0 });
+    click(document.getElementById("widget")!, { pageX: 10, pageY: 10 });
+    for (let i = 0; i < 120; i++) click(document.getElementById("go")!, { pageX: 10, pageY: 10 });
+    ctl.flush();
+    expect(all().filter((e) => e.type === "click")).toHaveLength(100);
+    // A new page resets the cap.
+    history.pushState({}, "", "/next");
+    ctl.pageview();
+    click(document.getElementById("go")!, { pageX: 10, pageY: 10 });
+    ctl.flush();
+    expect(all().filter((e) => e.type === "click")).toHaveLength(101);
+  });
+
+  it("is off with heatmap: false", () => {
+    sizeDocument(1000, 1000);
+    document.body.innerHTML = '<button id="go">Go</button>';
+    ctl = startAnalytics(rt, { heatmap: false }, send);
+    click(document.getElementById("go")!, { pageX: 10, pageY: 10 });
+    ctl.flush();
+    expect(all().filter((e) => e.type === "click")).toEqual([]);
+  });
+});
+
 describe("channelFor", () => {
   it.each([
     ["https://www.google.com/", undefined, [], "search"],

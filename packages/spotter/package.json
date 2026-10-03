@@ -1,6 +1,6 @@
 {
   "name": "@trusplex/spotter",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Spotter — embeddable issue capture for Trusplex: screenshots, replay, console, network and environment in every report, plus privacy-first web analytics.",
   "license": "MIT",
   "type": "module",

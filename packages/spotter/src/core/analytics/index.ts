@@ -14,6 +14,12 @@
  *   repeats of the current URL are ignored, so double calls are harmless);
  * - call `noteError(entry)` from `rt.error` for the per-page `js_error` event.
  *
+ * Heatmaps (`heatmap`, default on): each pointer click becomes a `click`
+ * event with its position as a fraction of the document (so Console can lay
+ * clicks from every screen size on one page) and a short stable selector.
+ * Never text or values; keyboard-activated clicks carry no position and are
+ * skipped; at most MAX_CLICKS_PER_PAGE per pageview.
+ *
  * Engagement is sent as deltas (`engagedMs` since the last engagement event
  * for the same `pageviewId`; `scrollDepth` is the max so far): the ingest sums
  * `engagedMs` and takes the max depth per pageview.
@@ -43,6 +49,10 @@ const FLUSH_MS = 5000;
 const FLUSH_AT = 20;
 const MAX_QUEUE = 200;
 const MAX_ERRORS_PER_PAGE = 10;
+const MAX_CLICKS_PER_PAGE = 100;
+/** Where a heatmap click is anchored: the nearest meaningful ancestor (as breadcrumbs do). */
+const CLICK_ANCHOR =
+  'a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="tab"],input,select,textarea,label,summary,[onclick],[tabindex]';
 const VID_COOKIE = "_spotter_vid";
 const SID_KEY = "_spotter_sid";
 
@@ -129,6 +139,7 @@ export function startAnalytics(
   let vitals: Vitals = {};
   let vitalsSent = false;
   let errorsThisPage = 0;
+  let clicksThisPage = 0;
 
   const base = (type: AnalyticsEvent["type"]): AnalyticsEvent => {
     const e: AnalyticsEvent = { type, at: new Date(rt.now()).toISOString(), url: page?.url ?? "", pageviewId: page?.id ?? "" };
@@ -238,6 +249,7 @@ export function startAnalytics(
       vitals = {};
       vitalsSent = false;
       errorsThisPage = 0;
+      clicksThisPage = 0;
       visibleSince = null;
       resumeClock();
 
@@ -308,6 +320,33 @@ export function startAnalytics(
     }
   };
 
+  const recordClick = (ev: MouseEvent) => {
+    // `detail === 0`: a click synthesised by the keyboard or script, with no real position.
+    if (!page || ev.detail === 0 || clicksThisPage >= MAX_CLICKS_PER_PAGE) return;
+    try {
+      const path = ev.composedPath?.() ?? [];
+      const first = (path[0] ?? ev.target) as Node | null;
+      const target = first?.nodeType === 1 ? (first as Element) : (first?.parentElement ?? null);
+      // Spotter's own UI, through shadow roots.
+      if (path.some((n) => (n as Element).hasAttribute?.("data-spotter-ui")) || target?.closest("[data-spotter-ui]")) return;
+      const doc = document.documentElement;
+      const width = Math.max(doc.scrollWidth, doc.clientWidth);
+      const height = Math.max(doc.scrollHeight, doc.clientHeight);
+      const pageX = ev.pageX ?? ev.clientX + window.scrollX;
+      const pageY = ev.pageY ?? ev.clientY + window.scrollY;
+      if (!(width > 0 && height > 0) || !Number.isFinite(pageX) || !Number.isFinite(pageY)) return;
+      const fraction = (v: number, of: number) => Math.round(Math.min(1, Math.max(0, v / of)) * 10_000) / 10_000;
+      const e = base("click");
+      e.click = { x: fraction(pageX, width), y: fraction(pageY, height) };
+      const el = target?.closest(CLICK_ANCHOR) ?? target;
+      if (el) e.click.selector = rt.selector(el).slice(0, 300);
+      clicksThisPage++;
+      enqueue(e);
+    } catch {
+      /* never throw */
+    }
+  };
+
   // -- automatic events and engagement listeners ---------------------------------------------
   if (hasDom) {
     const on = (t: EventTarget, type: string, fn: (e: Event) => void) => {
@@ -315,6 +354,7 @@ export function startAnalytics(
       undo.push(() => t.removeEventListener(type, fn, { capture: true }));
     };
     on(document, "click", (ev) => {
+      if (config.heatmap !== false) recordClick(ev as MouseEvent);
       try {
         const a = (ev.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
         if (!a || a.closest("[data-spotter-ui]")) return;

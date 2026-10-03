@@ -85,6 +85,9 @@ In most setups:
 - **Cookieless analytics** stores nothing on the device and sends no personal
   data, so in most setups no consent banner is required for it. Check with
   your counsel before relying on that; we document it rather than promise it.
+  Heatmap clicks (`analytics.heatmap`, on by default) are part of it: a
+  click's position on the page and a selector for the element, never its
+  text or any value. `analytics.heatmap: false` stops them.
 
 CMP integration: `connectConsentManager((c) => spotter.setConsent(c))` wires
 the IAB TCF v2 API, Cookiebot and OneTrust (statistics / measurement purposes

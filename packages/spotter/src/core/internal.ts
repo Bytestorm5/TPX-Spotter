@@ -44,6 +44,8 @@ export interface Runtime {
   consent(): { replay?: boolean; analytics?: boolean };
   /** Route pattern for the current URL, when a framework integration knows it. */
   routePattern(url?: string): string | undefined;
+  /** A short stable CSS selector for an element (lazy chunks use this rather than importing their own copy). */
+  selector(el: Element): string;
 }
 
 /** Stands in for a label in a raw crumb's message; replaced by the redacted, 60-char `label` at snapshot. */

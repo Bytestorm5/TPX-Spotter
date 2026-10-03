@@ -174,7 +174,8 @@ hashes.
 
 Masking is on by default. Redaction runs in the browser before upload.
 Buffer-mode replay sends nothing unless a report is filed. Analytics is
-cookieless. Consent, GPC and CMP integration, and the CSP entries Spotter
+cookieless; its heatmap clicks carry a position and a selector, never text
+(`analytics: { heatmap: false }` turns them off). Consent, GPC and CMP integration, and the CSP entries Spotter
 needs, are in [docs/privacy.md](../../docs/privacy.md).
 
 ## Schema
