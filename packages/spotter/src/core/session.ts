@@ -284,6 +284,7 @@ export function createSession(core: EngineCore): Session {
     const traceparents = [...((core.signal("network") as NetworkSignal | undefined)?.traceparents?.() ?? [])];
     const tp = header(opts.request, "traceparent");
     if (tp && !traceparents.includes(tp)) traceparents.push(tp);
+    core.snap("actions", undefined); // fills in click / input crumbs still waiting for their selector and label
     const snapshot: Snapshot = {
       at,
       // Signals hold raw records: serialized, redacted and formatted here, before anything is sent.

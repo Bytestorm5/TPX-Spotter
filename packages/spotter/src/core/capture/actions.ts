@@ -16,6 +16,12 @@
  *
  * Labels are held raw (≤ 200 chars) in the crumb's `label`; they are
  * redacted and capped at 60 chars at snapshot time (`finalizeCrumbs`).
+ *
+ * These listeners run in the capture phase, before the app's own handlers,
+ * so they do only cheap work inline: the crumb is filed at once (keeping
+ * its place in the timeline) and its selector, label and the document size
+ * (which can force a layout) are filled in after the next paint, or at
+ * snapshot time if that comes first.
  */
 import type { Json } from "../schema.ts";
 import { LABEL, type RawCrumb, type Runtime, type Signal } from "../internal.ts";
@@ -71,9 +77,55 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
     cleanup();
   };
 
-  /** `Clicked "<label>"` when there is a label (substituted, redacted, at snapshot), else `Clicked <selector>`. */
-  const crumb = (c: Omit<RawCrumb, "at" | "message">, verb: string, label: string, selector: string) =>
-    rt.breadcrumb({ at: iso(rt.now()), ...c, message: `${verb} ${label ? `"${LABEL}"` : selector}`, ...(label ? { label } : {}), selector });
+  // -- work deferred out of input handlers -------------------------------------------------------
+
+  let deferred: (() => void)[] = [];
+  const runDeferred = () => {
+    const jobs = deferred;
+    deferred = [];
+    try {
+      for (const job of jobs) job();
+    } catch (error) {
+      fault(error);
+    }
+  };
+  /** After the next paint: out of the interaction's way (INP), still within a frame or two. */
+  const defer = (job: () => void) => {
+    if (deferred.push(job) === 1) requestAnimationFrame(() => setTimeout(runDeferred));
+  };
+
+  type Described = { selector: string; label: string };
+  /** Memoized: the selector and label are worked out once, by whichever needs them first. */
+  const describer = (el: Element, point?: ClickPoint): (() => Described) => {
+    let d: Described | null = null;
+    return () => {
+      if (!d) {
+        d = { selector: cssSelector(el), label: labelOf(el) };
+        if (point) {
+          const doc = document.documentElement;
+          point.docWidth = Math.max(doc.scrollWidth, doc.clientWidth);
+          point.docHeight = Math.max(doc.scrollHeight, doc.clientHeight);
+        }
+      }
+      return d;
+    };
+  };
+
+  /**
+   * File a crumb now, describe it later. `Clicked "<label>"` when there is a
+   * label (substituted, redacted, at snapshot), else `Clicked <selector>`.
+   */
+  const crumb = (c: Omit<RawCrumb, "at" | "message" | "selector">, verb: string, describe: () => Described, data?: () => Record<string, Json>) => {
+    const raw = { at: iso(rt.now()), ...c, message: verb, selector: "" } as RawCrumb;
+    rt.breadcrumb(raw);
+    defer(() => {
+      const { label, selector } = describe();
+      raw.message = `${verb} ${label ? `"${LABEL}"` : selector}`;
+      raw.selector = selector;
+      if (label) raw.label = label;
+      if (data) raw.data = data();
+    });
+  };
 
   /** Short visible label for an element (raw; redacted at snapshot); empty when its text is masked. */
   const labelOf = (el: Element): string => {
@@ -88,7 +140,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
         } else if (el.localName === "select" || el.localName === "textarea") {
           text = el.getAttribute("name") || el.getAttribute("placeholder") || "";
         } else if (!isTextMasked(el, rules)) {
-          text = el.textContent ?? "";
+          text = el.textContent ?? ""; // after paint (see `describer`), so a big container costs no input delay
         }
       }
       return text.slice(0, 1000).replace(/\s+/g, " ").trim().slice(0, 200);
@@ -97,26 +149,24 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
     }
   };
 
-  const pointOf = (e: MouseEvent): ClickPoint => {
-    const doc = document.documentElement;
-    return {
-      x: Math.round(e.clientX),
-      y: Math.round(e.clientY),
-      pageX: Math.round(e.pageX ?? e.clientX + window.scrollX),
-      pageY: Math.round(e.pageY ?? e.clientY + window.scrollY),
-      docWidth: Math.max(doc.scrollWidth, doc.clientWidth),
-      docHeight: Math.max(doc.scrollHeight, doc.clientHeight),
-    };
-  };
+  /** The document size is filled in by the click's describer (after paint): reading it here could force a layout. */
+  const pointOf = (e: MouseEvent): ClickPoint => ({
+    x: Math.round(e.clientX),
+    y: Math.round(e.clientY),
+    pageX: Math.round(e.pageX ?? e.clientX + window.scrollX),
+    pageY: Math.round(e.pageY ?? e.clientY + window.scrollY),
+    docWidth: 0,
+    docHeight: 0,
+  });
 
   // -- clicks, rage / dead / error clicks ----------------------------------------------------
 
   const recent: { t: number; x: number; y: number }[] = [];
   let rageFiredAt = 0;
-  let lastClick: { t: number; selector: string; label: string; point: ClickPoint; errored: boolean } | null = null;
+  let lastClick: { t: number; describe: () => Described; point: ClickPoint; errored: boolean } | null = null;
   let observer: MutationObserver | null = null;
   let deadTimer: ReturnType<typeof setTimeout> | null = null;
-  let deadPending: { selector: string; label: string; point: ClickPoint } | null = null;
+  let deadPending: { describe: () => Described; point: ClickPoint } | null = null;
 
   const resolveDead = () => {
     deadPending = null;
@@ -125,7 +175,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
     observer?.disconnect();
   };
 
-  const watchDead = (el: Element, selector: string, label: string, point: ClickPoint) => {
+  const watchDead = (el: Element, describe: () => Described, point: ClickPoint) => {
     resolveDead();
     const link = el.closest("a[href]");
     if (link) {
@@ -134,7 +184,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       if (href.startsWith("#") || link.getAttribute("target") === "_blank" || link.hasAttribute("download") || /^(mailto|tel|sms):/i.test(href)) return;
     }
     if (typeof MutationObserver === "undefined") return;
-    deadPending = { selector, label, point };
+    deadPending = { describe, point };
     if (!observer) {
       observer = new MutationObserver((records) => {
         // Spotter's own UI changing is not a response to the click.
@@ -152,7 +202,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       const p = deadPending;
       resolveDead();
       if (!p || !active || document.visibilityState === "hidden") return;
-      crumb({ category: "dead_click", level: "warning", data: p.point as unknown as Record<string, Json> }, "Dead click on", p.label, p.selector);
+      crumb({ category: "dead_click", level: "warning", data: p.point as unknown as Record<string, Json> }, "Dead click on", p.describe);
     }, DEAD_WINDOW_MS);
   };
 
@@ -163,24 +213,24 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       const target = eventTarget(event);
       if (!target) return;
       const el = safeClosest(target, INTERESTING) ?? target;
-      const selector = cssSelector(el);
-      const label = labelOf(el);
       const point = pointOf(event as MouseEvent);
+      const describe = describer(el, point);
       const now = rt.now();
-      crumb({ category: "click", level: "info", data: point as unknown as Record<string, Json> }, "Clicked", label, selector);
+      crumb({ category: "click", level: "info", data: point as unknown as Record<string, Json> }, "Clicked", describe);
 
       recent.push({ t: now, x: point.x, y: point.y });
       while (recent.length && now - (recent[0]?.t ?? now) > RAGE_WINDOW_MS) recent.shift();
       if (isRageBurst(recent, now) && now - rageFiredAt > RAGE_WINDOW_MS) {
         rageFiredAt = now;
-        crumb({ category: "rage_click", level: "warning", data: { ...point, count: recent.length } as unknown as Record<string, Json> }, "Rage click on", label, selector);
+        const count = recent.length;
+        crumb({ category: "rage_click", level: "warning" }, "Rage click on", describe, () => ({ ...point, count }) as unknown as Record<string, Json>);
       } else if (rageFiredAt && now - rageFiredAt <= RAGE_WINDOW_MS) {
         rageFiredAt = now; // still the same burst: extend it, don't fire again
       }
 
-      lastClick = { t: now, selector, label, point, errored: false };
+      lastClick = { t: now, describe, point, errored: false };
       const actionable = safeClosest(target, ACTIONABLE);
-      if (actionable) watchDead(actionable, selector, label, point);
+      if (actionable) watchDead(actionable, describe, point);
       else resolveDead();
     } catch (error) {
       fault(error);
@@ -192,7 +242,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
     try {
       if (rt.now() - lastClick.t > ERROR_WINDOW_MS) return;
       lastClick.errored = true;
-      crumb({ category: "error_click", level: "error", data: lastClick.point as unknown as Record<string, Json> }, "Error after click on", lastClick.label, lastClick.selector);
+      crumb({ category: "error_click", level: "error", data: lastClick.point as unknown as Record<string, Json> }, "Error after click on", lastClick.describe);
     } catch (error) {
       fault(error);
     }
@@ -216,9 +266,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       // One breadcrumb per burst of typing, not per keystroke (and not again for the `change` that follows).
       if (prev !== undefined && now - prev < INPUT_REPEAT_MS) return;
       const type = tag === "input" ? (el.getAttribute("type") || "text").toLowerCase() : editable ? "contenteditable" : tag;
-      const selector = cssSelector(el);
-      const label = labelOf(el);
-      crumb({ category: "input", level: "info", data: { type } }, `Changed ${type}`, label, selector);
+      crumb({ category: "input", level: "info", data: { type } }, `Changed ${type}`, describer(el));
     } catch (error) {
       fault(error);
     }
@@ -232,9 +280,7 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
       if (fromSpotterUi(event)) return;
       const el = eventTarget(event);
       if (!el || !/^(input|select|textarea)$/.test(el.localName)) return;
-      const selector = cssSelector(el);
-      const label = labelOf(el);
-      crumb({ category: "focus", level: "debug" }, "Focused", label, selector);
+      crumb({ category: "focus", level: "debug" }, "Focused", describer(el));
     } catch (error) {
       fault(error);
     }
@@ -298,7 +344,8 @@ export function installActions(rt: Runtime, _opts: Record<string, never> = {}): 
 
   return {
     name: "actions",
-    snapshot: () => undefined,
+    // A snapshot reads the crumbs: describe any still waiting first.
+    snapshot: runDeferred,
     destroy() {
       active = false;
       cleanup();

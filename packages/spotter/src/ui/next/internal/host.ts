@@ -15,6 +15,8 @@ import { peekUiRoot, setUiRoot, type UiRoot } from "./root-ref.ts";
 export { peekUiRoot, type UiRoot };
 
 const sheets = new Map<string, CSSStyleSheet | HTMLStyleElement>();
+/** The CSS text last applied per sheet id. */
+const applied = new Map<string, string>();
 
 /**
  * `:host` resets win over any page rule (important declarations from the
@@ -42,6 +44,7 @@ export function getUiRoot(options: { unstyled?: boolean; nonce?: string } = {}):
   const root = { host, shadow, container };
   setUiRoot(root);
   sheets.clear();
+  applied.clear();
   if (shadow) setCss("reset", HOST_RESET, options.nonce);
   return root;
 }
@@ -62,6 +65,9 @@ export function setCss(id: string, css: string, nonce?: string): void {
   const r = peekUiRoot();
   if (!r || !r.shadow) return;
   const existing = sheets.get(id);
+  // Re-theming re-sends the same CSS more often than not: don't make the browser re-parse it.
+  if (existing && applied.get(id) === css) return;
+  applied.set(id, css);
   if (supportsAdopted(r.shadow)) {
     let sheet = existing as CSSStyleSheet | undefined;
     if (!sheet) {

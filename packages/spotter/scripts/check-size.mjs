@@ -6,7 +6,7 @@
  *           `ui/next` trigger shell (`src/ui/next/loader-entry.ts` when the
  *           UI provides one) or, without it, the core client facade that
  *           `import { spotter } from "@trusplex/spotter/core"` pulls in.
- *   core    < 15 KB gzip — everything loaded once Spotter has initialized:
+ *   core    < 15.25 KB gzip — everything loaded once Spotter has initialized:
  *           the core client (`src/core/singleton.ts`, the `spotter` the UI
  *           loads on idle) plus the engine chunk it loads on idle (capture
  *           signals). Feature chunks — analytics, replay, screenshot,
@@ -46,7 +46,9 @@ import { gzipSync } from "node:zlib";
 
 const pkg = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const src = (p) => join(pkg, "src", p);
-const BUDGET = { loader: 6 * 1024, core: 15 * 1024 };
+// Core went from 15 KB to 15.25 KB to keep Spotter out of the page's way at runtime: the engine
+// waits for `load`, and click / input crumbs do their selector, label and layout reads after paint.
+const BUDGET = { loader: 6 * 1024, core: 15.25 * 1024 };
 
 /** Chunks that load at init (idle), counted in the core budget. */
 const INIT_CHUNKS = ["src/core/engine.ts"];

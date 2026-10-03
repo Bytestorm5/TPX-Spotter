@@ -84,7 +84,24 @@ export function themeStylesheet(appearance: Appearance | undefined): { css: stri
   return { css: themeCss(theme), theme };
 }
 
-/** Call `fn` when the host's scheme may have changed (OS setting, theme toggle). */
+/** What on `<html>` / `<body>` can declare or paint a scheme — attribute and inline-style reads only, no style recalc. */
+function schemeInputs(): string {
+  let key = "";
+  for (const el of [document.documentElement, document.body]) {
+    if (!el) continue;
+    key += `${el.getAttribute("class")}|${el.getAttribute("data-theme")}|${el.getAttribute("data-mode")}|${el.getAttribute("data-color-scheme")}|`;
+    key += `${el.style.colorScheme}|${el.style.backgroundColor}|${el.style.background}#`;
+  }
+  return key;
+}
+
+/**
+ * Call `fn` when the host's scheme may have changed (OS setting, theme toggle).
+ * Attribute churn that can't change it (a scroll lock's `overflow` / padding
+ * on `<body>`, an unrelated inline style) is ignored, and real changes are
+ * coalesced and handled after the next paint, never inside the host's own
+ * interaction.
+ */
 export function watchScheme(fn: () => void): () => void {
   let mq: MediaQueryList | null = null;
   try {
@@ -93,11 +110,27 @@ export function watchScheme(fn: () => void): () => void {
   } catch {
     mq = null;
   }
-  const mo = new MutationObserver(fn);
+  let last = schemeInputs();
+  let pending = false;
+  let stopped = false;
+  const mo = new MutationObserver(() => {
+    if (pending) return;
+    const key = schemeInputs();
+    if (key === last) return;
+    last = key;
+    pending = true;
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        pending = false;
+        if (!stopped) fn();
+      }),
+    );
+  });
   const opts = { attributes: true, attributeFilter: ["class", "data-theme", "data-mode", "data-color-scheme", "style"] };
   mo.observe(document.documentElement, opts);
   if (document.body) mo.observe(document.body, opts);
   return () => {
+    stopped = true;
     mq?.removeEventListener("change", fn);
     mo.disconnect();
   };

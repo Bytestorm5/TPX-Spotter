@@ -32,6 +32,8 @@ test.describe("automatic reports", () => {
   test("an uncaught error files a detailed report on its own", async ({ page }) => {
     await visit(page, "/broken/crash");
     await settle(page);
+    // Replay records from a quiet moment at least 2 s after load (an error before then is reported without one).
+    await page.waitForTimeout(2500);
     await page.getByTestId("throw").click();
     const [issue] = await waitForAuto(page);
     await shot(page, "auto-01-after-crash");

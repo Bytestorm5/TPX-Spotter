@@ -9,8 +9,10 @@
  *   tab session id and a guest token from the URL, buffer early errors,
  *   expose `window.__trusplexSpotter`. Nothing touches `window` at import,
  *   so it is SSR / RSC safe.
- * - On idle the engine chunk (`engine.ts`) loads and installs the capture
- *   signals; replay starts there in buffer mode when enabled and consented.
+ * - Once the page has loaded, on idle, the engine chunk (`engine.ts`) loads
+ *   and installs the capture signals (errors before then are buffered here);
+ *   replay starts there in buffer mode when enabled and consented, and
+ *   records from the next quiet moment (`replay/quiet.ts`).
  * - The first user interaction (or `open()`) schedules, on idle, the remote
  *   config fetch and the offline-queue replay — so there are zero Spotter
  *   requests before the user engages.
@@ -79,10 +81,12 @@ const MAX_EARLY = 20;
 
 type Listener = (payload: never) => void;
 
+/** Once the page has loaded, at the next idle moment: Spotter's chunks never compete with the page's own load. */
 function idle(fn: () => void): void {
   const w = globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
-  if (typeof w.requestIdleCallback === "function") w.requestIdleCallback(fn, { timeout: 3000 });
-  else setTimeout(fn, 1);
+  const run = () => (w.requestIdleCallback ? w.requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 1));
+  if (document.readyState === "complete") run();
+  else addEventListener("load", run, { once: true });
 }
 
 function session(key: string): string | null {

@@ -101,9 +101,12 @@ export function startFlow(
 /** Start capturing now, then show the panel. The picker calls this with the chosen element. */
 export function beginCapture(mode: FlowMode, element: Element | null, prefill?: OpenOptions["prefill"]): void {
   const host = peekUiRoot()?.host;
-  pendingCapture = ensureClient().then(() =>
-    bridge.capture({ screenshot: screenshotFor(mode), element, exclude: host ? [host] : [] }),
-  );
+  // Capturing serializes the page (DOM snapshot, signal buffers, screenshot clone): let the panel
+  // paint its "capturing" state first, so the click that opened it isn't held up (INP). The panel
+  // lives in the excluded host, so it stays out of the capture.
+  pendingCapture = ensureClient()
+    .then(() => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve))))
+    .then(() => bridge.capture({ screenshot: screenshotFor(mode), element, exclude: host ? [host] : [] }));
   pendingCapture.catch(() => {});
   const snap = getSnapshot();
   update({

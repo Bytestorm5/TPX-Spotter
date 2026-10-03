@@ -90,7 +90,8 @@ const live = await page.evaluate(() => ({
 check(live.email === "secret@example.com" && live.masked === "MASKED_ACCOUNT 12345" && live.blocked.startsWith("BLOCKED_SECRET"), "live DOM unchanged after capture");
 
 // -- replay ---------------------------------------------------------------------------------
-await page.evaluate(() => window.__spotter.replay("buffer"));
+const startedAfter = await page.evaluate(() => window.__spotter.replay("buffer"));
+check(startedAfter > 0, `replay waited for a quiet moment before recording (${startedAfter} ms)`);
 await page.fill("#email", "typed-secret@example.com");
 await page.fill("#pw", "typed-hunter3");
 await page.fill("#note", "TYPED_NOTE");
@@ -154,7 +155,7 @@ await page2.evaluate(() => {
   p.textContent = "Receipt page";
   document.body.append(p);
 });
-await page2.waitForTimeout(1800);
+await page2.waitForTimeout(3000);
 const afterNav = await page2.evaluate(() => window.__spotter.sampledSegment());
 const navEvents = JSON.parse(strFromU8(gunzipSync(Uint8Array.from(afterNav.segments.at(-1)?.data ?? []))));
 const navAt = navEvents.findIndex((e) => e.type === 5 && e.data?.tag === "spotter:navigation");

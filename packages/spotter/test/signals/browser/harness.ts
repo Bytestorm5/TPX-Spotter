@@ -47,7 +47,13 @@ const segments: { seq: number; data: number[] }[] = [];
       },
     });
     (window as unknown as Record<string, unknown>).__ctl = ctl;
-    return true;
+    // Recording starts once the page is loaded and quiet; its first full snapshot marks the start.
+    const t0 = performance.now();
+    while (!ctl.recentEvents().length) {
+      if (performance.now() - t0 > 15_000) throw new Error("replay never started");
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return Math.round(performance.now() - t0);
   },
   async flush() {
     const ctl = (window as unknown as { __ctl: Awaited<ReturnType<typeof startReplay>> }).__ctl;

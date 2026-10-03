@@ -19,7 +19,7 @@ pnpm install
 pnpm typecheck
 pnpm test             # vitest (node + happy-dom)
 pnpm build            # tsc → dist, CLI, CDN bundles + SRI
-pnpm check:size       # loader < 6 KB, core < 15 KB (gzip)
+pnpm check:size       # loader < 6 KB, core < 15.25 KB (gzip)
 pnpm check:features   # every disabled feature is compiled out
 pnpm test:e2e         # Playwright against fixtures/next-app
 ```

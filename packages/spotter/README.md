@@ -61,6 +61,28 @@ call `/api/spotter/v1/events/` and so on directly, rather than taking Next's
 Disabled features are compiled out: a build with `replay: false` contains no
 replay code, and CI proves it. Enabled heavy features load lazily.
 
+## Staying out of the page's way
+
+Spotter keeps out of page load and out of the user's interactions:
+
+- **Nothing during load.** The Provider and trigger add no work to
+  hydration. The engine (capture signals) loads once the page has fired
+  `load` and the main thread is idle. Errors from before that are buffered by
+  the loader and still reported.
+- **Replay starts late and snapshots at quiet moments.** rrweb serializes
+  the whole page in one task when it takes a full snapshot, so Spotter
+  decides when that happens. Recording starts at least 2 s after `load`, when
+  the main thread is idle, the tab is visible and there has been no input for
+  1.5 s. Periodic checkouts and the snapshot after an in-app navigation wait
+  for the same kind of moment, and are skipped when nothing changed.
+  The replay buffer measures event sizes in idle time. A report filed before
+  recording starts has no replay; everything else is attached as usual.
+- **Clicks and typing stay cheap.** The breadcrumb and heatmap listeners
+  file each event straight away. They compute the selector and label, and
+  read the document size (which can force a layout), after the next paint.
+- **Opening the widget paints first.** The panel shows its "capturing" state
+  before the page is serialized for the report.
+
 ## The widget's UI
 
 The report flow, the confirmation (with **Track status**, which opens the

@@ -4,7 +4,7 @@ import { installNavigation, onNavigation } from "../../src/core/capture/navigati
 import { installActions, isRageBurst } from "../../src/core/capture/actions.ts";
 import { noteNetworkActivity } from "../../src/core/capture/network.ts";
 import { finalizeCrumbs, finalizeNavigation } from "../../src/core/capture/finalize.ts";
-import type { Signal } from "../../src/core/internal.ts";
+import { LABEL, type Signal } from "../../src/core/internal.ts";
 import { setUrl, testRuntime, type TestRuntime } from "./helpers.ts";
 
 let rt: TestRuntime;
@@ -68,11 +68,17 @@ describe("installNavigation", () => {
 
 describe("installActions", () => {
   const click = (el: Element, x = 10, y = 10) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true, clientX: x, clientY: y }));
+  /** Selectors and labels are filled in after paint, or when a snapshot reads the crumbs. */
+  const settle = () => signals.at(-1)?.snapshot();
 
   it("records clicks with selector, redacted label and coordinates", () => {
     document.body.innerHTML = `<button id="pay"><span>Pay jane@x.io</span></button>`;
     signals.push(installActions(rt));
     click(document.querySelector("span")!, 40, 50);
+    // Filed at once (keeping its place in the timeline), described later.
+    expect(rt.crumbs).toHaveLength(1);
+    expect(rt.crumbs[0]?.selector).toBe("");
+    settle();
     const c = finalizeCrumbs(rt.crumbs, rt.redactor).find((x) => x.category === "click");
     expect(c).toMatchObject({ selector: "#pay", message: 'Clicked "Pay [redacted:email]"' });
     expect(c).not.toHaveProperty("label");
@@ -85,6 +91,7 @@ describe("installActions", () => {
     document.body.innerHTML = `<div data-spotter-mask><button id="acct">Account 12345</button></div>`;
     signals.push(installActions(rt));
     click(document.getElementById("acct")!);
+    settle();
     expect(rt.crumbs[0]?.message).toBe("Clicked #acct");
   });
 
@@ -95,6 +102,7 @@ describe("installActions", () => {
     input.value = "secret@example.com";
     input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
     input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    settle();
     const crumbs = rt.crumbs.filter((c) => c.category === "input");
     expect(crumbs).toHaveLength(1); // one per burst
     expect(JSON.stringify(crumbs)).not.toContain("secret@example.com");
@@ -120,6 +128,7 @@ describe("installActions", () => {
       rt.clock.t += 100;
       click(b, 100 + i, 100);
     }
+    settle();
     const rage = rt.crumbs.filter((c) => c.category === "rage_click");
     expect(rage).toHaveLength(1);
     expect(rage[0]?.data).toMatchObject({ x: 102, y: 100 });
@@ -132,6 +141,7 @@ describe("installActions", () => {
     signals.push(installActions(rt));
     click(document.getElementById("dead")!);
     vi.advanceTimersByTime(1100);
+    settle();
     expect(rt.crumbs.filter((c) => c.category === "dead_click").map((c) => c.selector)).toEqual(["#dead"]);
 
     click(document.getElementById("live")!);
@@ -152,9 +162,18 @@ describe("installActions", () => {
     rt.clock.t += 200;
     window.dispatchEvent(new ErrorEvent("error", { error: new Error("x"), message: "x" }));
     window.dispatchEvent(new ErrorEvent("error", { error: new Error("y"), message: "y" }));
+    settle();
     const ec = rt.crumbs.filter((c) => c.category === "error_click");
     expect(ec).toHaveLength(1);
     expect(ec[0]?.selector).toBe("#b");
+  });
+
+  it("describes crumbs after the next paint on its own", async () => {
+    document.body.innerHTML = `<button id="b">Go</button>`;
+    signals.push(installActions(rt));
+    click(document.getElementById("b")!);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(rt.crumbs[0]).toMatchObject({ selector: "#b", message: `Clicked "${LABEL}"`, label: "Go" });
   });
 
   it("removes its listeners on destroy", () => {

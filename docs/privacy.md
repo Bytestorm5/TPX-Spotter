@@ -18,7 +18,7 @@ your Content Security Policy.
 
 Before the first user interaction Spotter makes no requests of its own: the
 remote config fetch and the offline-queue replay wait for it. Its code chunks
-do load on idle.
+do load, once the page has loaded and is idle.
 
 ## Redaction (in the browser, before upload)
 

@@ -3,7 +3,7 @@
  * first use on the server). It holds only what must run from the start —
  * the capture signals (errors, console, network, navigation, actions), the
  * shared breadcrumb buffer, and the switches for replay and analytics — so
- * "core once initialized" stays inside its 15 KB budget. Signals hold raw,
+ * "core once initialized" stays inside its 15.25 KB budget. Signals hold raw,
  * bounded records; redaction, serialization, stack parsing and HAR building
  * run at snapshot time in the session chunk (nothing is sent before a
  * snapshot).

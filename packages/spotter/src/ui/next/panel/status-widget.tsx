@@ -12,7 +12,7 @@ import { Button, Textarea } from "@trusplex/ui";
 import { ExternalIcon, InboxIcon } from "../internal/icons.tsx";
 import { WIDGET_KIT_CSS } from "../theme/kit.ts";
 import { PANEL_CSS } from "../theme/panel-css.ts";
-import { themeStylesheet, watchScheme, detectScheme } from "../theme/runtime.ts";
+import { themeStylesheet, watchScheme } from "../theme/runtime.ts";
 import { ensureRuntime, type TriggerRuntime } from "../theme/trigger-runtime.ts";
 import type { StatusWidgetProps } from "../status.tsx";
 import { STATUS_KEYS, StatusBadge } from "./views.tsx";
@@ -72,10 +72,13 @@ export function StatusWidget({ shadow, container, pollSeconds, limit, config, no
 
   useEffect(() => {
     if (unstyled) return;
+    let applied = "";
     const apply = () => {
-      const { css } = themeStylesheet(config.appearance);
+      const { css, theme } = themeStylesheet(config.appearance);
+      container.setAttribute("data-scheme", theme.scheme);
+      if (css === applied) return; // same theme: keep the sheets (re-adopting re-parses the panel CSS)
+      applied = css;
       adopt(shadow, [LOCAL_CSS, css, WIDGET_KIT_CSS, PANEL_CSS], nonce);
-      container.setAttribute("data-scheme", detectScheme(config.appearance?.theme));
     };
     apply();
     return watchScheme(apply);

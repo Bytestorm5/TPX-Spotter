@@ -8,12 +8,13 @@
  *
  * Polls only while the tab is visible, at most every `pollSeconds`, and only
  * for reports filed from this browser (the client keeps their capability
- * tokens). The heavy part is lazy.
+ * tokens). The heavy part is lazy, and loads once the page is loaded and idle.
  */
 import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
 import { FEATURE_WIDGET } from "../../core/features.ts";
 import { useSpotterContext } from "./provider.tsx";
+import { whenIdle } from "./internal/idle.ts";
 
 export interface SpotterStatusProps {
   /** Poll interval while visible. Default 60 s. */
@@ -44,14 +45,18 @@ export function SpotterStatus({ pollSeconds = 60, limit = 5 }: SpotterStatusProp
   useEffect(() => {
     const host = hostRef.current;
     if (!host || !FEATURE_WIDGET) return;
-    const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
-    let container = shadow.querySelector<HTMLElement>(".sp-root");
-    if (!container) {
-      container = document.createElement("span");
-      container.className = "sp-root";
-      shadow.appendChild(container);
-    }
-    setMount({ shadow, container });
+    // Like the trigger: nothing during hydration. The widget chunk, its first poll (which loads
+    // the client) and the status requests wait until the page has loaded and gone idle.
+    return whenIdle(() => {
+      const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+      let container = shadow.querySelector<HTMLElement>(".sp-root");
+      if (!container) {
+        container = document.createElement("span");
+        container.className = "sp-root";
+        shadow.appendChild(container);
+      }
+      setMount({ shadow, container });
+    });
   }, []);
   if (!LazyStatus) return null;
   return (

@@ -329,19 +329,30 @@ export function startAnalytics(
       const target = first?.nodeType === 1 ? (first as Element) : (first?.parentElement ?? null);
       // Spotter's own UI, through shadow roots.
       if (path.some((n) => (n as Element).hasAttribute?.("data-spotter-ui")) || target?.closest("[data-spotter-ui]")) return;
-      const doc = document.documentElement;
-      const width = Math.max(doc.scrollWidth, doc.clientWidth);
-      const height = Math.max(doc.scrollHeight, doc.clientHeight);
       const pageX = ev.pageX ?? ev.clientX + window.scrollX;
       const pageY = ev.pageY ?? ev.clientY + window.scrollY;
-      if (!(width > 0 && height > 0) || !Number.isFinite(pageX) || !Number.isFinite(pageY)) return;
-      const fraction = (v: number, of: number) => Math.round(Math.min(1, Math.max(0, v / of)) * 10_000) / 10_000;
+      if (!Number.isFinite(pageX) || !Number.isFinite(pageY)) return;
+      // Stamped with the page and time of the click; the document size (a layout read) and the
+      // selector are worked out after the next paint, out of the interaction's way.
       const e = base("click");
-      e.click = { x: fraction(pageX, width), y: fraction(pageY, height) };
-      const el = target?.closest(CLICK_ANCHOR) ?? target;
-      if (el) e.click.selector = rt.selector(el).slice(0, 300);
       clicksThisPage++;
-      enqueue(e);
+      requestAnimationFrame(() =>
+        setTimeout(() => {
+          try {
+            const doc = document.documentElement;
+            const width = Math.max(doc.scrollWidth, doc.clientWidth);
+            const height = Math.max(doc.scrollHeight, doc.clientHeight);
+            if (!(width > 0 && height > 0)) return;
+            const fraction = (v: number, of: number) => Math.round(Math.min(1, Math.max(0, v / of)) * 10_000) / 10_000;
+            e.click = { x: fraction(pageX, width), y: fraction(pageY, height) };
+            const el = target?.closest(CLICK_ANCHOR) ?? target;
+            if (el) e.click.selector = rt.selector(el).slice(0, 300);
+            enqueue(e);
+          } catch {
+            /* never throw */
+          }
+        }),
+      );
     } catch {
       /* never throw */
     }
