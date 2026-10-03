@@ -7,6 +7,7 @@ import type {
   ArtifactKind,
   Breadcrumb,
   Category,
+  ErrorEntry,
   CustomFieldDeclaration,
   FlagOccurrence,
   Issue,
@@ -110,7 +111,148 @@ export interface TriggerConfig {
   targeting?: TargetingRule;
 }
 
+// -- automatic reports -----------------------------------------------------------------
+
+/** What an automatic report can be triggered by. */
+export type AutoReportKind =
+  /** Uncaught errors and unhandled promise rejections. */
+  | "error"
+  /** fetch / XHR responses with an error status, and requests that failed outright (offline, CORS, DNS). */
+  | "network"
+  /** The page itself: the document's HTTP status, or a client-side (RSC) navigation's. */
+  | "page"
+  /** `console.error` / `console.warn` calls. */
+  | "console"
+  /** `<img>`, `<script>`, `<link>`, `<video>`… that failed to load. */
+  | "resource"
+  /** Content-Security-Policy violations. */
+  | "csp"
+  /** Server-side errors (`createOnRequestError()` in instrumentation.ts). */
+  | "server";
+
+/**
+ * An HTTP status, a class (`"4xx"`, `"5xx"`), or an inclusive range
+ * (`"400-403"`). Prefix with `!` to exclude (`"!404"`).
+ */
+export type StatusSpec = number | string;
+
+/**
+ * One rule for a kind of problem. Every field set must match (AND); leave a
+ * field out to match anything. Patterns are case-insensitive substrings for
+ * messages and globs (`*`, a leading `/` matches the path) for URLs; RegExps
+ * work too (from client code: they can't cross the server → client boundary).
+ */
+export interface AutoReportMatcher {
+  /** `network`, `page`, `resource`, `server`: which statuses count. */
+  status?: StatusSpec | StatusSpec[];
+  /** Only these URLs (the request, the page, the resource or the blocked URI). */
+  urls?: (string | RegExp)[];
+  ignoreUrls?: (string | RegExp)[];
+  /** `network`: only these HTTP methods. */
+  methods?: string[];
+  /** Only problems whose message contains / matches one of these. */
+  messages?: (string | RegExp)[];
+  ignoreMessages?: (string | RegExp)[];
+  /** `error` / `console` / `server`: error class names (`TypeError`, `ChunkLoadError`). */
+  types?: string[];
+  /** `error`: `uncaught`, `unhandledrejection`. */
+  mechanisms?: ("uncaught" | "unhandledrejection")[];
+  /** `console`: levels. Default `["error"]`. */
+  levels?: ("error" | "warn")[];
+  /** `console`: only calls that pass an `Error` (how React, Next and most apps log caught exceptions). Default true. */
+  withError?: boolean;
+  /** `network` / `resource`: requests that never got a response (offline, CORS, DNS, blocked). Default true. */
+  failed?: boolean;
+  /** `network`: count aborted requests (`AbortController`, navigation away). Default false. */
+  aborted?: boolean;
+  /** Severity of reports this rule files (defaults by kind and status). */
+  severity?: Severity;
+}
+
+/** `true` → the kind's defaults, `false` → off, or one or more matchers (any may match). */
+export type AutoReportRule = boolean | AutoReportMatcher | AutoReportMatcher[];
+
+/** A problem Spotter noticed, as `autoReport.filter` sees it. */
+export interface AutoReportEvent {
+  kind: AutoReportKind;
+  /** ISO timestamp. */
+  at: string;
+  /** Human-readable, unredacted (redaction runs before anything is sent). */
+  message: string;
+  /** Error class name, `HTTP 502`, `ResourceError`, `CSPViolation`… */
+  type: string;
+  status?: number;
+  statusText?: string;
+  url?: string;
+  method?: string;
+  /** Request duration, ms. */
+  duration?: number;
+  mechanism?: ErrorEntry["mechanism"];
+  level?: "error" | "warn";
+  /** `resource`: the element's tag (`img`, `script`, …). `csp`: the violated directive. */
+  element?: string;
+  directive?: string;
+  /** `page`: true for a client-side navigation (RSC request) rather than the document load. */
+  soft?: boolean;
+  /** The thrown value, when there is one. */
+  error?: unknown;
+  /** Raw stack, when there is one. */
+  stack?: string;
+}
+
+export interface AutoReportConfig {
+  /** Default true once `autoReport` is set; `false` turns it off without removing the rules. */
+  enabled?: boolean;
+  /** Uncaught errors and unhandled rejections. Default on. */
+  errors?: AutoReportRule;
+  /** Failed requests. Default `{ status: "5xx", failed: true }`: 4xx (404, 401, 422…) are not reported. */
+  network?: AutoReportRule;
+  /** The page's own HTTP status. Default `{ status: "5xx" }`; add `404` to report broken links. */
+  page?: AutoReportRule;
+  /** `console.error` calls that pass an Error (React error boundaries, `catch (e) { console.error(e) }`). Default on. */
+  console?: AutoReportRule;
+  /** Failed `<img>` / `<script>` / `<link>` loads. Default off. */
+  resources?: AutoReportRule;
+  /** CSP violations. Default off. */
+  csp?: AutoReportRule;
+  /** Server errors, for `createOnRequestError()`. Default `{ status: "5xx" }`. */
+  server?: AutoReportRule;
+  /** Messages or URLs never reported, whatever the kind (substring / glob / RegExp). */
+  ignore?: (string | RegExp)[];
+  /**
+   * Last word on every problem Spotter notices (bar `ignore`d ones), matched or not: return
+   * `true` to report it, `false` to drop it, nothing to keep the rules'
+   * decision. Client code only (a function can't be passed from a server
+   * component).
+   */
+  filter?: (event: AutoReportEvent, matched: boolean) => boolean | void;
+  /**
+   * Problems within this window (ms) of the first one go into the same report
+   * (a failed request, the rejection it caused and the error it logged are
+   * one report). Default 1000.
+   */
+  delayMs?: number;
+  limits?: {
+    /** Reports per distinct problem per tab session (server: per process per hour). Default 1. */
+    perIssue?: number;
+    /** Automatic reports per tab session (server: per process per hour). Default 10. */
+    perSession?: number;
+  };
+  /** What to attach. Default everything on: screenshot, replay, console, network, storage, DOM. */
+  include?: ReportInput["include"];
+  /** Tags on every automatic report (beside `spotter.auto` / `spotter.trigger`). */
+  tags?: Record<string, string>;
+  /** Severity for every automatic report (overrides the per-kind defaults). */
+  severity?: Severity;
+}
+
 export interface SpotterConfig {
+  /**
+   * File a report automatically when something goes wrong: uncaught errors,
+   * 5xx responses, failed page loads and more, each configurable (see
+   * `AutoReportConfig`). `true` uses the defaults. Default off.
+   */
+  autoReport?: boolean | AutoReportConfig;
   /** The public project key (`pk_live_…` / `pk_test_…`). */
   project?: string;
   /** Server only: the secret key (`sk_…`), from `SPOTTER_SECRET_KEY`. Never ship it to the browser. */
@@ -237,6 +379,8 @@ export interface SpotterEvents {
   track: AnalyticsEvent;
   consent: ConsentState;
   config: RemoteConfig;
+  /** An automatic report was filed (`autoReport`): what triggered it, and the receipt. */
+  autoReport: { trigger: AutoReportEvent; events: AutoReportEvent[]; receipt: ReportReceipt };
 }
 
 export interface ConsentState {

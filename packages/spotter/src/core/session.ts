@@ -17,7 +17,9 @@ import { finalizeConsole, finalizeCrumbs, finalizeNavigation } from "./capture/f
 import type { NavigationSnapshot } from "./capture/navigation.ts";
 import type { NetworkSignal, RawRequest } from "./capture/network.ts";
 import { emptyHar, harFrom } from "./capture/network-har.ts";
-import { errorEntryFrom, finalizeError } from "./capture/stack.ts";
+import { errorEntryFrom, finalizeError, parseStack } from "./capture/stack.ts";
+import type { AutoReporter } from "./auto-report/index.ts";
+import { describeEvent, normalizeAutoReport, noteCaptured, type NormalizedAutoReport } from "./auto-report/rules.ts";
 import { collectPage, domSnapshot } from "./capture/page.ts";
 import { installPerformance, type PerformanceSignal } from "./capture/performance.ts";
 import { collectStorage } from "./capture/storage.ts";
@@ -48,10 +50,11 @@ import {
   type ReportStatusView,
   type ReportSubmission,
   type SdkInfo,
+  type Severity,
   type SimilarIssue,
   type StorageSnapshot,
 } from "./schema.ts";
-import { buildTimeline } from "./timeline.ts";
+import { buildTimeline, reproSteps } from "./timeline.ts";
 import { drainQueue, uploadAndComplete } from "./transport/deliver.ts";
 import { createHttpTransport } from "./transport/http.ts";
 import { createQueue, memoryQueue, type OfflineQueue, type QueuedArtifact } from "./transport/queue.ts";
@@ -59,6 +62,7 @@ import { isRetryable } from "./transport/retry.ts";
 import type {
   Attachment,
   AttachmentSummary,
+  AutoReportEvent,
   DevDetails,
   ExceptionContext,
   FlagOptions,
@@ -106,10 +110,13 @@ export interface Session {
   fetchRemote(): Promise<void>;
   reapplyRemote(): void;
   drain(): Promise<number>;
+  /** File any pending automatic report now (tests; page hide does it on its own). */
+  flushAuto(): Promise<void>;
   destroy(): void;
 }
 
 type Include = Required<NonNullable<ReportInput["include"]>>;
+type SpotterConfigAuto = ResolvedConfig["autoReport"];
 
 interface Snapshot {
   at: number;
@@ -412,6 +419,8 @@ export function createSession(core: EngineCore): Session {
       extraContexts?: Record<string, Record<string, Json>>;
       turnstileToken?: string;
       drop?: WidgetDraft["include"];
+      /** Last touches to the submission (it's complete, before trimming and `beforeSend`). */
+      finish?: (submission: ReportSubmission) => void;
     } = {},
   ): Promise<{ submission: ReportSubmission; artifacts: QueuedArtifact[] }> {
     let include = defaultInclude(source, input.include);
@@ -447,7 +456,9 @@ export function createSession(core: EngineCore): Session {
     if (flushed)
       add({ name: "replay.rrweb.json.gz", kind: "replay", contentType: "application/x-rrweb+gzip", data: flushed.data, startedAt: flushed.startedAt, endedAt: flushed.endedAt });
 
-    const errors = opts.error ? [...snapshot.errors, opts.error] : snapshot.errors;
+    // An auto-reported uncaught error is already in the buffer: don't list it twice.
+    const known = opts.error && snapshot.errors.some((e) => e.at === opts.error!.at && e.type === opts.error!.type && e.message === opts.error!.message);
+    const errors = opts.error && !known ? [...snapshot.errors, opts.error] : snapshot.errors;
     const contexts: Record<string, Record<string, Json>> = {};
     for (const [k, v] of Object.entries({ ...scope.contexts, ...opts.extraContexts })) contexts[k] = redactor.redactJson(v, "context") as Record<string, Json>;
     const signalsOut: ReportSubmission["signals"] = {
@@ -504,6 +515,7 @@ export function createSession(core: EngineCore): Session {
       ...(mode.guestToken ? { guestToken: mode.guestToken } : {}),
       ...(opts.turnstileToken ? { turnstileToken: opts.turnstileToken } : {}),
     };
+    opts.finish?.(submission);
     fit(submission);
     const beforeSend = cfg().beforeSend;
     if (beforeSend) {
@@ -519,7 +531,10 @@ export function createSession(core: EngineCore): Session {
     };
   }
 
-  async function deliver({ submission, artifacts }: { submission: ReportSubmission; artifacts: QueuedArtifact[] }): Promise<ReportReceipt> {
+  async function deliver(
+    { submission, artifacts }: { submission: ReportSubmission; artifacts: QueuedArtifact[] },
+    { remember = true }: { remember?: boolean } = {},
+  ): Promise<ReportReceipt> {
     host.emit("submit", submission);
     let receipt: ReportReceipt;
     try {
@@ -534,7 +549,7 @@ export function createSession(core: EngineCore): Session {
       await queue.put({ kind: "report", id, at: Date.now(), attempts: 0, submission, artifacts });
       receipt = { id, ref: pendingRef(submission.clientId), token: "", uploads: [], queued: true };
     }
-    if (browser) rememberReport(receipt, submission.content.title, submission.createdAt);
+    if (browser && remember) rememberReport(receipt, submission.content.title, submission.createdAt);
     host.emit("sent", receipt);
     host.emit("issue", { ...submission, receipt });
     if (!receipt.queued) {
@@ -549,6 +564,7 @@ export function createSession(core: EngineCore): Session {
   async function captureException(error: unknown, context: ExceptionContext = {}): Promise<ReportReceipt | null> {
     const { tags, request, ...extras } = context;
     const entry = errorEntryFrom(error, browser ? "captured" : "server", (v, w) => redactor.redact(v, w));
+    if (browser) noteCaptured(error, entry.type, entry.message);
     const extra: Record<string, Json> = {};
     for (const [k, v] of Object.entries(extras)) if (v !== undefined) extra[k] = v as Json;
     try {
@@ -571,6 +587,148 @@ export function createSession(core: EngineCore): Session {
       throw e;
     }
   }
+
+  // -- automatic reports ------------------------------------------------------------------------
+
+  const clean = (o: Record<string, Json | undefined>): Record<string, Json> => {
+    const out: Record<string, Json> = {};
+    for (const [k, v] of Object.entries(o)) if (v !== undefined && v !== "") out[k] = v;
+    return out;
+  };
+
+  /** What the page was doing when it happened: beyond the regular signals, cheap and often decisive. */
+  function pageState(): Record<string, Json> {
+    try {
+      const mem = (performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
+      return clean({
+        url: redactor.redactUrl(location.href),
+        visibility: document.visibilityState,
+        readyState: document.readyState,
+        focused: typeof document.hasFocus === "function" ? document.hasFocus() : undefined,
+        online: navigator.onLine,
+        uptimeMs: Math.round(performance.now()),
+        ...(mem ? { heapUsedMB: Math.round(mem.usedJSHeapSize / 1048576), heapLimitMB: Math.round(mem.jsHeapSizeLimit / 1048576) } : {}),
+      });
+    } catch {
+      return {};
+    }
+  }
+
+  async function fileAuto(rules: NormalizedAutoReport, primary: AutoReportEvent, events: (AutoReportEvent & { count: number })[], severity: Severity): Promise<ReportReceipt | null> {
+    const red = (v: string) => redactor.redact(v, "error");
+    const safe = <E extends AutoReportEvent>(e: E): E => ({ ...e, message: red(e.message), ...(e.url ? { url: redactor.redactUrl(e.url) } : {}) });
+    const line = (e: AutoReportEvent) => describeEvent(safe(e));
+    const time = (at: string) => at.slice(11, 23);
+
+    // The headline problem as the ticket's error: it drives the fingerprint (grouping) and the error panel.
+    const stack = primary.stack ? red(primary.stack) : undefined;
+    const entry: ErrorEntry = {
+      at: primary.at,
+      type: red(primary.type).slice(0, 200),
+      message: (primary.kind === "error" || primary.kind === "console" ? red(primary.message) : line(primary)).slice(0, 8192),
+      frames: stack ? parseStack(stack) : [],
+      mechanism: primary.kind === "error" && primary.mechanism ? primary.mechanism : "captured",
+      ...(stack ? { stack } : {}),
+    };
+    const where = (() => {
+      try {
+        return core.routePattern() ?? location.pathname;
+      } catch {
+        return "";
+      }
+    })();
+    // In the order they happened; the headline is marked.
+    const bullets = [...events]
+      .sort((a, b) => a.at.localeCompare(b.at))
+      .map((e) => {
+        const extra = [e.duration !== undefined ? `${e.duration} ms` : "", e.count > 1 ? `×${e.count}` : ""].filter(Boolean).join(", ");
+        const text = `${time(e.at)} · ${e.kind}: ${line(e)}${extra ? ` (${extra})` : ""}`;
+        return `- ${e === events[0] ? `**${text}**` : text}`;
+      });
+    const context: Record<string, Json> = {
+      trigger: primary.kind,
+      summary: line(primary),
+      events: events.map((e) =>
+        clean({
+          kind: e.kind,
+          at: e.at,
+          type: red(e.type),
+          message: red(e.message).slice(0, 2000),
+          count: e.count,
+          status: e.status,
+          statusText: e.statusText,
+          method: e.method,
+          url: e.url ? redactor.redactUrl(e.url) : undefined,
+          durationMs: e.duration,
+          mechanism: e.mechanism,
+          level: e.level,
+          element: e.element,
+          directive: e.directive,
+          soft: e.soft,
+        }),
+      ),
+      page: pageState(),
+    };
+    const tags: Record<string, string> = {
+      ...rules.tags,
+      "spotter.auto": "true",
+      "spotter.trigger": primary.kind,
+      ...(primary.status ? { "http.status": String(primary.status) } : {}),
+      ...(primary.kind === "error" || primary.kind === "console" ? { "error.type": entry.type } : {}),
+    };
+    const title = line(primary).slice(0, 200);
+    try {
+      const receipt = await deliver(
+        await build({ title, description: "", category: "bug", severity, include: rules.include, tags }, "error", {
+          error: entry,
+          extraContexts: { autoReport: context },
+          finish(sub) {
+            const steps = reproSteps(sub.timeline);
+            sub.content.description = [
+              `Spotter filed this report automatically after ${events.length > 1 ? `${events.length} problems` : "a problem"} on ${where || "this page"}. Nobody described it: the console, network log, breadcrumbs, replay and DOM snapshot attached show what led up to it.`,
+              "",
+              "**What happened**",
+              ...bullets,
+              ...(steps ? ["", "**Steps leading up to it**", steps] : []),
+            ]
+              .join("\n")
+              .slice(0, 20_000);
+          },
+        }),
+        // The visitor didn't file it: it stays out of their "My reports".
+        { remember: false },
+      );
+      host.emit("autoReport", { trigger: primary, events, receipt });
+      return receipt;
+    } catch (e) {
+      if (e instanceof SpotterDroppedError) return null;
+      host.emit("error", { error: e, stage: "submit" });
+      return null;
+    }
+  }
+
+  let autoReporter: AutoReporter | null = null;
+  let autoConfig: SpotterConfigAuto;
+  let autoGen = 0;
+  /** Start, stop or restart the watcher to match `autoReport` (init, a second init). */
+  function syncAuto(): void {
+    if (!browser) return;
+    const wanted = destroyed ? undefined : cfg().autoReport;
+    if (wanted === autoConfig) return;
+    autoConfig = wanted;
+    autoReporter?.destroy();
+    autoReporter = null;
+    const rules = normalizeAutoReport(wanted);
+    if (!rules) return;
+    const gen = ++autoGen;
+    import("./auto-report/index.ts")
+      .then((m) => {
+        if (gen !== autoGen || destroyed) return;
+        autoReporter = m.startAutoReport({ core, rules, file: (p, ev, sev) => fileAuto(rules, p, ev, sev) });
+      })
+      .catch((error) => core.runtime.fault("autoReport", error));
+  }
+  syncAuto();
 
   // -- widget flow ------------------------------------------------------------------------------
 
@@ -730,6 +888,7 @@ export function createSession(core: EngineCore): Session {
   // -- remote config & queue -------------------------------------------------------------------------
 
   function reapplyRemote(): void {
+    syncAuto();
     const remote = host.remote();
     if (!remote) return;
     const applied = applyRemoteConfig(host.baseConfig(), remote);
@@ -817,8 +976,10 @@ export function createSession(core: EngineCore): Session {
         failed: (_item, error) => host.emit("error", { error, stage: "submit" }),
       }).catch(() => 0);
     },
+    flushAuto: () => autoReporter?.flush() ?? Promise.resolve(),
     destroy() {
       destroyed = true;
+      syncAuto();
       if (FEATURE_FLAGS) {
         void flagger?.flush(true);
         flagger?.destroy();

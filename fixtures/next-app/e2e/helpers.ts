@@ -12,7 +12,7 @@ export async function shot(page: Page, name: string, target?: Locator): Promise<
   else await page.screenshot({ path: join(SHOTS, `${name}.png`) });
 }
 
-export type Variant = Partial<Record<"sp_locale" | "sp_theme" | "sp_mode" | "sp_preset" | "sp_review" | "sp_identify" | "sp_fields" | "sp_shortcut", string>>;
+export type Variant = Partial<Record<"sp_locale" | "sp_theme" | "sp_mode" | "sp_preset" | "sp_review" | "sp_identify" | "sp_fields" | "sp_shortcut" | "sp_auto", string>>;
 
 export async function useVariant(page: Page, variant: Variant): Promise<void> {
   await page.context().clearCookies();

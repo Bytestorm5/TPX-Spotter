@@ -93,6 +93,27 @@ The reporter always gets a confirmation. If the send fails, the report is
 queued in IndexedDB and `report()` resolves with a provisional
 `SPT-PENDING-xxxx` receipt (`queued: true`). The queue delivers it later.
 
+### Automatic reports
+
+`autoReport` files a report whenever something goes wrong, with no one
+pressing the button. It covers uncaught errors, 5xx responses, failed page
+loads and caught exceptions by default, plus 404s, failed images or CSP
+violations if you want them. Each report is as complete as a hand-filed one,
+and says what triggered it.
+
+```tsx
+<SpotterProvider autoReport={{ page: { status: ["5xx", 404] }, network: { status: "5xx" }, ignore: ["/api/health"] }}>
+```
+
+```ts
+// instrumentation.ts: server components, route handlers, server actions, middleware
+import { createOnRequestError } from "@trusplex/spotter/ui/next";
+export const onRequestError = createOnRequestError();
+```
+
+Rules, defaults, limits and what the report contains are in
+[docs/auto-reports.md](../../docs/auto-reports.md).
+
 ### On the server
 
 The same API works in route handlers, server actions and middleware. It uses

@@ -3,6 +3,7 @@
  *
  * - Config: `withSpotter()` (next.config, Node only).
  * - Route handler: `createSpotterHandler()` (app/api/spotter/[[...spotter]]/route.ts).
+ * - Server errors: `createOnRequestError()` (instrumentation.ts `onRequestError`).
  * - Components: `<SpotterProvider>`, `<Spotter />`, `<SpotterButton />`,
  *   `<SpotterPanel />`, `<SpotterStatus />`, `<SpotterTrigger asChild>`,
  *   `<SpotterErrorBoundary>`, and `useSpotter()`.
@@ -15,6 +16,7 @@
 export { withSpotter, resolveSpotterBuild, scanAppRoutes, type WithSpotterOptions } from "./config/with-spotter.ts";
 export { generateEnvDts, type SpotterTypesOptions, type FieldTypeSpec } from "./config/env-dts.ts";
 export { createSpotterHandler, type SpotterHandlerOptions, type SpotterRouteHandlers } from "./handler.ts";
+export { createOnRequestError, type OnRequestErrorOptions, type NextRequestErrorInfo, type NextRequestErrorContext } from "./request-error.ts";
 
 export { SpotterProvider, useSpotterContext, type SpotterProviderProps } from "./provider.tsx";
 export { Spotter, SpotterPanel, type SpotterProps, type SpotterPanelProps } from "./spotter.tsx";

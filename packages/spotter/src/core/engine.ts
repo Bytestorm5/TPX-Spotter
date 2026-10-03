@@ -260,6 +260,8 @@ export function createEngine(host: EngineHost): Engine {
     install("network", () => installNetwork(runtime, { max: cap.networkEntries ?? 100, bodies: privacy.networkBodies ?? [], headers: privacy.networkHeaders ?? [] }));
     install("navigation", () => installNavigation(runtime, { max: cap.navigationHistory ?? 20 }));
     install("actions", () => installActions(runtime));
+    // Automatic reports watch from the start, so their (session-chunk) watcher loads now rather than on first interaction.
+    if (cfg().autoReport) void session();
 
     const onOnline = () => void session().then((s) => s.drain());
     const onHide = () => {
@@ -393,6 +395,7 @@ export function createEngine(host: EngineHost): Engine {
       }),
     reconfigure() {
       loaded?.reapplyRemote();
+      if (!loaded && started && browser && cfg().autoReport) void session();
       reconfigure();
     },
     destroy() {

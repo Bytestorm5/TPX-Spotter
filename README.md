@@ -10,7 +10,7 @@ routes and resolves.
 | `packages/spotter/schema/spotter.report.v1.json` | The published ticket schema                                                                                                                                                      |
 | `packages/ui`                                    | `@trusplex/ui`, the component kit the widget's report flow is built from: tokens, a stylesheet and React components, usable in any app. See its [README](packages/ui/README.md). |
 | `fixtures/next-app`                              | A Next.js App Router app that installs Spotter like a customer would, used for the Playwright e2e suite                                                                          |
-| `docs/`                                          | [Wire protocol](docs/protocol.md), [hooks](docs/hooks.md), [privacy, consent and CSP](docs/privacy.md), [self-hosting](docs/self-hosting.md)                                     |
+| `docs/`                                          | [Automatic reports](docs/auto-reports.md), [wire protocol](docs/protocol.md), [hooks](docs/hooks.md), [privacy, consent and CSP](docs/privacy.md), [self-hosting](docs/self-hosting.md)                                     |
 
 ## Develop
 

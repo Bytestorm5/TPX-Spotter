@@ -17,6 +17,8 @@ export interface Variant {
   identify?: boolean;
   fields?: boolean;
   shortcut?: boolean;
+  /** Automatic reports (`sp_auto=1`): off by default so the widget suites see only what they file. */
+  auto?: boolean;
 }
 
 const FIELDS: CustomFieldDeclaration[] = [
@@ -57,6 +59,17 @@ export function SpotterSetup({ variant, children }: { variant: Variant; children
       privacy={{ maskText: "inputs", reviewBeforeSend: variant.review }}
       trigger={{ shortcut: variant.shortcut ? "Shift+Alt+B" : undefined }}
       fields={variant.fields ? FIELDS : undefined}
+      autoReport={
+        variant.auto
+          ? {
+              // This shop wants broken links reported, so page 404s count; API 4xx still don't.
+              page: { status: ["5xx", 404] },
+              network: { status: "5xx" },
+              ignore: ["/api/test/*"],
+              tags: { fixture: "next-app" },
+            }
+          : undefined
+      }
       appearance={{
         mode: variant.mode,
         preset: variant.preset,

@@ -22,6 +22,7 @@ async function readVariant(): Promise<Variant> {
     identify: get("sp_identify") === "1",
     fields: get("sp_fields") === "1",
     shortcut: get("sp_shortcut") !== "0",
+    auto: get("sp_auto") === "1",
   };
 }
 
