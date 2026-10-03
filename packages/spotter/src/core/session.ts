@@ -183,6 +183,7 @@ export function createSession(core: EngineCore): Session {
     cfg().transport ??
     createHttpTransport({
       endpoint: cfg().endpoint,
+      trailingSlash: cfg().trailingSlash,
       project: cfg().project,
       secretKey: cfg().secretKey,
       meta: () => {

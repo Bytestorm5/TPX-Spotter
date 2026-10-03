@@ -792,7 +792,8 @@ export function createIngestHandler(options: IngestHandlerOptions = {}): IngestH
     if (!cors.allowed) return error(403, "origin_not_allowed", "Origin not allowed.");
 
     const i = url.pathname.indexOf("/v1/");
-    const path = i >= 0 ? url.pathname.slice(i) : "";
+    // `/v1/events/` too: the SDK sends that to a Next app with `trailingSlash: true` (see `trailingSlash` in the config).
+    const path = i >= 0 ? url.pathname.slice(i).replace(/(.)\/+$/, "$1") : "";
     const base = baseFor(request, url.pathname);
     if (!path) return withCors(json({ ok: true, name: "@trusplex/spotter ingest", version: SDK_VERSION, mode: proxying ? "proxy" : "self-hosted" }));
 

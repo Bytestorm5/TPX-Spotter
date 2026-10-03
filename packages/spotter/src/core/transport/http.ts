@@ -41,6 +41,12 @@ export interface HttpTransportOptions {
   /** Override for tests / non-browser runtimes. */
   sendBeacon?: (url: string, data: Blob) => boolean;
   /**
+   * End every request path under `endpoint` with a slash (`/v1/events/`). For
+   * a Next app with `trailingSlash: true`, which otherwise answers each call
+   * with a 308 to the slashed URL. Absolute URLs from a receipt are left alone.
+   */
+  trailingSlash?: boolean;
+  /**
    * Facts the ingest records for Console's health panel (on `/v1/config`) and
    * the reporter mode tokens `/v1/similar` needs to widen duplicate search.
    */
@@ -75,9 +81,11 @@ export interface HttpTransport extends Transport {
   ): Promise<void>;
 }
 
-function joinUrl(base: string, path: string): string {
+function joinUrl(base: string, path: string, trailingSlash = false): string {
   if (/^https?:\/\//i.test(path)) return path;
-  return `${base.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
+  const url = `${base.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
+  // The slash goes at the end of the path, before any query.
+  return trailingSlash ? url.replace(/^([^?]*?)\/?(\?|$)/, "$1/$2") : url;
 }
 
 function withQuery(url: string, params: Record<string, string | number | undefined>): string {
@@ -111,6 +119,7 @@ function slice(data: Blob | Uint8Array, start: number, end: number): Blob | Uint
 
 export function createHttpTransport(options: HttpTransportOptions): HttpTransport {
   const base = options.endpoint.replace(/\/+$/, "");
+  const slash = options.trailingSlash === true;
   const doFetch: typeof fetch = (input, init) => (options.fetch ?? globalThis.fetch)(input, init);
   const chunkSize = Math.max(16 * 1024, options.chunkSize ?? DEFAULT_CHUNK_SIZE);
   const timeoutMs = options.timeoutMs ?? 20_000;
@@ -138,7 +147,7 @@ export function createHttpTransport(options: HttpTransportOptions): HttpTranspor
       headers["content-type"] = "application/json";
       body = JSON.stringify(init.json);
     }
-    const res = await doFetch(joinUrl(base, path), {
+    const res = await doFetch(joinUrl(base, path, slash), {
       method,
       headers,
       body,
@@ -172,7 +181,11 @@ export function createHttpTransport(options: HttpTransportOptions): HttpTranspor
     onProgress?: (p: UploadProgress) => void,
   ): Promise<void> {
     const declared = receipt.uploads.find((u) => u.name === name)?.url;
-    const url = joinUrl(base, declared ?? `/v1/reports/${encodeURIComponent(receipt.id)}/artifacts/${encodeURIComponent(name)}`);
+    const url = joinUrl(
+      base,
+      declared ?? `/v1/reports/${encodeURIComponent(receipt.id)}/artifacts/${encodeURIComponent(name)}`,
+      slash,
+    );
     const total = byteLength(data);
     let offset = 0;
     let resync = false;
@@ -276,7 +289,7 @@ export function createHttpTransport(options: HttpTransportOptions): HttpTranspor
     async events(batch: AnalyticsBatch, opts) {
       // Simple request: no custom headers, text/plain, key in the body.
       const body = JSON.stringify({ ...batch, key: batch.key ?? options.project });
-      const url = joinUrl(base, "/v1/events");
+      const url = joinUrl(base, "/v1/events", slash);
       if (opts?.beacon) {
         const beacon =
           options.sendBeacon ??

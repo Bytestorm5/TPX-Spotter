@@ -117,6 +117,13 @@ export interface SpotterConfig {
   secretKey?: string;
   /** Ingest base URL. Browser default `/api/spotter`; server default Console's hosted ingest. */
   endpoint?: string;
+  /**
+   * End request paths with a slash (`/api/spotter/v1/events/`), for a Next app
+   * with `trailingSlash: true` that would otherwise redirect every call.
+   * `<SpotterProvider>` turns it on when `withSpotter()` saw `trailingSlash: true`
+   * and the endpoint is on the same origin (a path).
+   */
+  trailingSlash?: boolean;
   /** `development` sends to the test inbox and shows a Test ribbon. */
   environment?: string;
   release?: { version?: string; commit?: string; deployId?: string };

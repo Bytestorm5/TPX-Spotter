@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createIngestHandler, fileSystemStorage, memoryStorage, uploadRelease } from "../../src/core/server/index.ts";
 import { defineHook, memoryDeliveryStore } from "../../src/core/hooks/index.ts";
 import { createHttpTransport } from "../../src/core/transport/http.ts";
-import type { Issue, ReportReceipt } from "../../src/core/schema.ts";
+import type { AnalyticsBatch, Issue, ReportReceipt } from "../../src/core/schema.ts";
 import { hmacHex } from "../../src/core/server/sign.ts";
 import { exampleSubmission } from "../schema/example-report.ts";
 
@@ -88,6 +88,33 @@ describe("createIngestHandler — self-hosted", () => {
     // portal
     const portal = await (await handler(new Request(`${BASE}/v1/portal?token=${receipt.token}`))).json();
     expect(portal.reports[0]).toMatchObject({ id: receipt.id, ref: "SPT-1001" });
+  });
+
+  it("serves a Next app with trailingSlash: true — every call slashed, every route still matched", async () => {
+    const handler = createIngestHandler({ upstream: false, rateLimit: false });
+    const paths: string[] = [];
+    const fetch = viaHandler(handler);
+    const t = createHttpTransport({
+      endpoint: BASE,
+      project: "pk_test_abcdefgh",
+      trailingSlash: true,
+      fetch: (input, init) => {
+        paths.push(new URL(String(input), BASE).pathname);
+        return fetch(input, init);
+      },
+    });
+    const { sub, shot, replay } = withArtifacts();
+    const receipt = await t.submit(sub);
+    await t.upload(receipt, "screenshot.png", shot, "image/png");
+    await t.upload(receipt, "replay.rrweb.json.gz", replay, "application/x-rrweb+gzip");
+    await t.complete(receipt);
+    expect((await handler.getIssue(receipt.id))?.artifacts.map((a) => a.state)).toEqual(["stored", "stored"]);
+    expect(await t.status(receipt.id, receipt.token)).toMatchObject({ status: "received" });
+    await t.events({ events: [], sdk: { name: "@trusplex/spotter", version: "0", features: [] } } satisfies AnalyticsBatch);
+    expect(paths.length).toBeGreaterThan(4);
+    expect(paths.every((p) => p.endsWith("/"))).toBe(true);
+    // The bare root still answers with the handler's info, slashed or not.
+    expect((await (await handler(new Request(`${BASE}/`))).json()).mode).toBe("self-hosted");
   });
 
   it("finalizes immediately when no artifacts are declared, and exposes failed deliveries", async () => {

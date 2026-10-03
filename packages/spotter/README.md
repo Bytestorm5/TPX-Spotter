@@ -54,6 +54,10 @@ NEXT_PUBLIC_SPOTTER_PROJECT=pk_live_…
 SPOTTER_SECRET_KEY=sk_live_…      # server only: forwarding to Trusplex, source-map upload
 ```
 
+With `trailingSlash: true` in your Next config, `withSpotter()` has the SDK
+call `/api/spotter/v1/events/` and so on directly, rather than taking Next's
+308 redirect on every request; the route handler accepts both forms.
+
 Disabled features are compiled out: a build with `replay: false` contains no
 replay code, and CI proves it. Enabled heavy features load lazily.
 

@@ -15,6 +15,10 @@
  *   inlines them as `NEXT_PUBLIC_SPOTTER_ROUTES`, so every captured URL gets
  *   its pattern (`/blog/[slug]`) synchronously — even the history-patch
  *   pageview that fires before React renders the new route.
+ * - **Trailing slashes.** With `trailingSlash: true`, Next answers
+ *   `/api/spotter/v1/events` with a 308 to `…/events/`, an extra round trip
+ *   for every call (and a beacon). `NEXT_PUBLIC_SPOTTER_TRAILING_SLASH`
+ *   makes the browser SDK send the slashed form, which the handler accepts.
  * - **Typed flags.** Writes `spotter-env.d.ts` (see `env-dts.ts`).
  * - **Private source maps.** With `SPOTTER_SECRET_KEY` set, browser source
  *   maps are generated, uploaded after compilation
@@ -162,6 +166,8 @@ function apply(config: NextConfig, options: WithSpotterOptions): NextConfig {
   if (release.commit) publicEnv.NEXT_PUBLIC_SPOTTER_COMMIT = release.commit;
   if (release.deployId) publicEnv.NEXT_PUBLIC_SPOTTER_DEPLOY_ID = release.deployId;
   publicEnv.NEXT_PUBLIC_SPOTTER_ENVIRONMENT = environment;
+  // With `trailingSlash: true` Next redirects `/api/spotter/v1/events` to `…/events/`: the SDK sends the slashed form instead.
+  if (config.trailingSlash === true) publicEnv.NEXT_PUBLIC_SPOTTER_TRAILING_SLASH = "1";
   const routes = scanAppRoutes();
   if (routes.length > 0) publicEnv.NEXT_PUBLIC_SPOTTER_ROUTES = JSON.stringify(routes);
 

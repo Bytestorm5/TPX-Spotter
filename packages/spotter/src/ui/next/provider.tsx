@@ -58,6 +58,8 @@ function publicEnv() {
     deployId: read(() => process.env.NEXT_PUBLIC_SPOTTER_DEPLOY_ID),
     environment: read(() => process.env.NEXT_PUBLIC_SPOTTER_ENVIRONMENT),
     routes: read(() => process.env.NEXT_PUBLIC_SPOTTER_ROUTES),
+    endpoint: read(() => process.env.NEXT_PUBLIC_SPOTTER_ENDPOINT),
+    trailingSlash: read(() => process.env.NEXT_PUBLIC_SPOTTER_TRAILING_SLASH),
   };
 }
 
@@ -99,6 +101,8 @@ export function SpotterProvider({ children, nonce, ...props }: SpotterProviderPr
       ...props,
       project: props.project ?? env.project,
       environment: props.environment ?? env.environment,
+      // `withSpotter()` saw `trailingSlash: true`: slash this app's own routes (a path endpoint), never another origin.
+      trailingSlash: props.trailingSlash ?? (env.trailingSlash === "1" && (props.endpoint ?? env.endpoint ?? "/").startsWith("/")),
       release: props.release ?? (env.release || env.commit ? { version: env.release, commit: env.commit, deployId: env.deployId } : undefined),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
