@@ -7,6 +7,7 @@
  *   interface SpotterFeatureFlags { analytics: false; flags: true }
  *   interface SpotterRegister {
  *     events: "signup_completed" | "checkout_started";
+ *     goals: "purchase" | "trial_started";
  *     fields: { order_number: string; plan: "free" | "pro" };
  *     contexts: { cart: { items: number; total: number } };
  *   }
@@ -23,7 +24,18 @@
  */
 import type { FeatureName } from "./features.ts";
 import type { FieldValue, Json, ReportReceipt } from "./schema.ts";
-import type { FlagOptions, OpenOptions, RecordingSession, ReportInput, SpotterClient, SpotterRequestScope, SpotterWidgetApi, ExceptionContext } from "./types.ts";
+import type {
+  ConversionOptions,
+  FlagOptions,
+  OpenOptions,
+  RecordingSession,
+  ReportInput,
+  SpotterClient,
+  SpotterFunnel,
+  SpotterRequestScope,
+  SpotterWidgetApi,
+  ExceptionContext,
+} from "./types.ts";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SpotterFeatureFlags {}
@@ -36,6 +48,7 @@ type Get<T, K extends string, D> = K extends keyof T ? T[K] : D;
 export type FeatureDisabled<F extends FeatureName> = Get<SpotterFeatureFlags, F, true> extends false ? true : false;
 
 export type RegisteredEvent = Get<SpotterRegister, "events", string> extends infer E extends string ? E : string;
+export type RegisteredGoal = Get<SpotterRegister, "goals", string> extends infer G extends string ? G : string;
 export type RegisteredFields =
   Get<SpotterRegister, "fields", Record<string, FieldValue>> extends infer F extends Record<string, FieldValue> ? F : Record<string, FieldValue>;
 export type RegisteredContexts =
@@ -56,6 +69,10 @@ export type TypedOpenOptions = Omit<OpenOptions, "prefill"> & {
 export type TrackMethod = FeatureDisabled<"analytics"> extends true
   ? DisabledMethod
   : (name: RegisteredEvent, props?: Props, revenue?: { value: number; currency: string }) => void;
+export type GoalMethod = FeatureDisabled<"analytics"> extends true ? DisabledMethod : (name: RegisteredGoal, options?: ConversionOptions) => void;
+export type FunnelMethod = FeatureDisabled<"analytics"> extends true
+  ? DisabledMethod
+  : <const S extends string>(name: string, steps: readonly S[]) => SpotterFunnel<S>;
 export type PageviewMethod = FeatureDisabled<"analytics"> extends true ? DisabledMethod : (url?: string, routePattern?: string) => void;
 export type FlagMethod = FeatureDisabled<"flags"> extends true ? DisabledMethod : (name: string, options?: FlagOptions) => void;
 export type AssertMethod = FeatureDisabled<"flags"> extends true
@@ -76,10 +93,23 @@ export interface TypedRequestScope extends Omit<SpotterRequestScope, "report" | 
 export interface TypedSpotter
   extends Omit<
     SpotterClient & SpotterWidgetApi,
-    "track" | "pageview" | "flag" | "assert" | "open" | "report" | "setContext" | "startRecording" | "withRequest" | "init"
+    | "track"
+    | "goal"
+    | "funnel"
+    | "pageview"
+    | "flag"
+    | "assert"
+    | "open"
+    | "report"
+    | "setContext"
+    | "startRecording"
+    | "withRequest"
+    | "init"
   > {
   init(config: Parameters<SpotterClient["init"]>[0]): TypedSpotter;
   track: TrackMethod;
+  goal: GoalMethod;
+  funnel: FunnelMethod;
   pageview: PageviewMethod;
   flag: FlagMethod;
   assert: AssertMethod;

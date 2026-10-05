@@ -108,11 +108,12 @@ describe("spotter-env.d.ts", () => {
   it("types flags, events, fields (select → union) and contexts", () => {
     const out = generateEnvDts(
       { widget: true, screenshot: true, annotate: true, replay: false, analytics: true, flags: true, recording: false },
-      { events: ["a", "b", "a"], fields: { order: "text", plan: { type: "select", options: ["free", "pro"] }, tags: "multiselect", ok: "checkbox", stars: "rating", "odd-id": "file" }, contexts: ["cart"] },
+      { events: ["a", "b", "a"], goals: ["purchase"], fields: { order: "text", plan: { type: "select", options: ["free", "pro"] }, tags: "multiselect", ok: "checkbox", stars: "rating", "odd-id": "file" }, contexts: ["cart"] },
     );
     expect(out).toContain('declare module "@trusplex/spotter/core"');
     expect(out).toContain("replay: false;");
     expect(out).toContain('events: "a" | "b";');
+    expect(out).toContain('goals: "purchase";');
     expect(out).toContain('plan: "free" | "pro";');
     expect(out).toContain("tags: string[];");
     expect(out).toContain("ok: boolean;");

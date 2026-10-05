@@ -117,6 +117,27 @@ describe("startAnalytics", () => {
     expect(e?.props).not.toHaveProperty("obj");
   });
 
+  it("sends goals and funnel steps with their declaration and the caller's conversion id", () => {
+    ctl = startAnalytics(rt, {}, send);
+    ctl.track("purchase", undefined, { value: 49, currency: "usd" }, { goal: "purchase", conversionId: "cs_123" });
+    ctl.track("checkout:paid", undefined, undefined, {
+      funnel: { name: "checkout", step: "paid", steps: ["cart", "shipping", "paid"] },
+      conversionId: "cs_123",
+    });
+    ctl.track("plain");
+    ctl.flush();
+    const events = all().filter((e) => e.type === "event");
+    expect(events[0]).toMatchObject({ name: "purchase", goal: "purchase", conversionId: "cs_123", revenue: { value: 49, currency: "USD" } });
+    expect(events[1]).toMatchObject({
+      name: "checkout:paid",
+      funnel: { name: "checkout", step: "paid", steps: ["cart", "shipping", "paid"] },
+      conversionId: "cs_123",
+    });
+    expect(events[1]).not.toHaveProperty("goal");
+    expect(events[2]).not.toHaveProperty("conversionId");
+    expect(events[2]).not.toHaveProperty("funnel");
+  });
+
   it("records outbound links, downloads and form submits automatically", () => {
     document.body.innerHTML = `<a id="out" href="https://other.org/page?x=1">o</a><a id="dl" href="/files/report.pdf">d</a><a id="in" href="/about">i</a><form id="signup"></form>`;
     ctl = startAnalytics(rt, {}, send);

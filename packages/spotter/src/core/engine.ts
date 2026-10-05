@@ -29,7 +29,7 @@ import { devWarn } from "./dev.ts";
 import { DEV, FEATURE_ANALYTICS, FEATURE_REPLAY, type FeatureName } from "./features.ts";
 import type { RawCrumb, ReplayController, Runtime, Signal } from "./internal.ts";
 import type { createRedactor, CustomRedactor, Redactor } from "./redact.ts";
-import type { Breadcrumb, ErrorEntry, Json, RemoteConfig, ReleaseInfo, ReporterType } from "./schema.ts";
+import type { AnalyticsEvent, Breadcrumb, ErrorEntry, Json, RemoteConfig, ReleaseInfo, ReporterType } from "./schema.ts";
 import type { Session } from "./session.ts";
 import type { Attachment, ConsentState, DevDetails, FlagOptions, IdentifyInput, RequestLike, SpotterEvents, SpotterState } from "./types.ts";
 
@@ -90,6 +90,9 @@ export interface EngineCore {
   isDestroyed(): boolean;
 }
 
+/** What `goal()` and funnel steps add to a custom event. */
+export type Conversion = Pick<AnalyticsEvent, "goal" | "funnel" | "conversionId">;
+
 export interface Engine {
   readonly runtime: Runtime;
   start(): void;
@@ -97,7 +100,7 @@ export interface Engine {
   session(): Promise<Session>;
   flag(name: string, options?: FlagOptions, request?: RequestLike): void;
   flush(): Promise<void>;
-  track(name: string, props?: Record<string, string | number | boolean>, revenue?: { value: number; currency: string }): void;
+  track(name: string, props?: Record<string, string | number | boolean>, revenue?: { value: number; currency: string }, conversion?: Conversion): void;
   pageview(url?: string, routePattern?: string): void;
   breadcrumb(crumb: Breadcrumb): void;
   discardCapture(id: string): void;
@@ -110,7 +113,7 @@ export interface Engine {
 }
 
 interface AnalyticsHandle {
-  track(n: string, p?: Record<string, string | number | boolean>, r?: { value: number; currency: string }): void;
+  track(n: string, p?: Record<string, string | number | boolean>, r?: { value: number; currency: string }, c?: Conversion): void;
   pageview(u?: string, r?: string): void;
   noteError(e?: Pick<ErrorEntry, "type" | "message">): void;
   flush(beacon?: boolean): void;
@@ -376,10 +379,10 @@ export function createEngine(host: EngineHost): Engine {
       if (FEATURE_ANALYTICS) analytics?.flush();
       if (sessionPromise) await (await sessionPromise).flush();
     },
-    track(name, props, revenue) {
+    track(name, props, revenue, conversion) {
       if (!FEATURE_ANALYTICS) return;
-      if (analytics) analytics.track(name, props, revenue);
-      else if (!browser) void session().then((s) => s.trackServer(name, props, revenue));
+      if (analytics) analytics.track(name, props, revenue, conversion);
+      else if (!browser) void session().then((s) => s.trackServer(name, props, revenue, conversion));
       else if (typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) devWarn("track() was called while analytics is off (consent, GPC, remote config, or not started yet); the event was dropped.");
     },
     pageview(url, rp) {

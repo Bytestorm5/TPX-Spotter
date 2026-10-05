@@ -25,7 +25,8 @@ import { installPerformance, type PerformanceSignal } from "./capture/performanc
 import { collectStorage } from "./capture/storage.ts";
 import type { ResolvedConfig } from "./config.ts";
 import { devWarn } from "./dev.ts";
-import type { EngineCore } from "./engine.ts";
+import { conversionFields } from "./analytics/conversion.ts";
+import type { Conversion, EngineCore } from "./engine.ts";
 import { SpotterDroppedError } from "./errors.ts";
 import { FEATURE_ANNOTATE, FEATURE_FLAGS, FEATURE_RECORDING, FEATURE_REPLAY, FEATURE_SCREENSHOT, type FeatureName } from "./features.ts";
 import { deriveFingerprint } from "./fingerprint.ts";
@@ -94,7 +95,7 @@ export interface Session {
   flag(name: string, options: FlagOptions | undefined, request: RequestLike | undefined, at: number): void;
   flush(beacon?: boolean): Promise<void>;
   sendEvents(events: AnalyticsEvent[], opts: { beacon: boolean }): void;
-  trackServer(name: string, props?: Record<string, string | number | boolean>, revenue?: { value: number; currency: string }): void;
+  trackServer(name: string, props?: Record<string, string | number | boolean>, revenue?: { value: number; currency: string }, conversion?: Conversion): void;
   performance(): PerformanceSignal | undefined;
   sampledIn(): boolean;
   status(id: string): Promise<ReportStatusView | null>;
@@ -929,8 +930,17 @@ export function createSession(core: EngineCore): Session {
       for (const e of events) if (e.type === "event") host.emit("track", e);
       void transport.events({ key: cfg().project, events, sdk: sdk() }, opts).catch(() => {});
     },
-    trackServer(name, props, revenue) {
-      const event: AnalyticsEvent = { type: "event", name, at: iso(), url: "", pageviewId: "", ...(props ? { props } : {}), ...(revenue ? { revenue } : {}) };
+    trackServer(name, props, revenue, conversion) {
+      const event: AnalyticsEvent = {
+        type: "event",
+        name,
+        at: iso(),
+        url: "",
+        pageviewId: "",
+        ...(props ? { props } : {}),
+        ...(revenue ? { revenue } : {}),
+        ...conversionFields(conversion),
+      };
       host.emit("track", event);
       void transport.events({ key: cfg().project, events: [event], sdk: sdk() }).catch(() => {});
     },

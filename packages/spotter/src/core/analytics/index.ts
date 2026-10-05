@@ -26,7 +26,9 @@
  */
 import type { AnalyticsEvent, ErrorEntry } from "../schema.ts";
 import type { AnalyticsConfig } from "../types.ts";
+import type { Conversion } from "../engine.ts";
 import type { Runtime } from "../internal.ts";
+import { conversionFields } from "./conversion.ts";
 
 export { channelFor } from "./channels.ts";
 
@@ -34,7 +36,8 @@ type Props = Record<string, string | number | boolean>;
 type Vitals = NonNullable<AnalyticsEvent["vitals"]>;
 
 export interface AnalyticsController {
-  track(name: string, props?: Props, revenue?: { value: number; currency: string }): void;
+  /** `conversion`: what `spotter.goal()` and funnel steps add (goal, funnel, conversion id). */
+  track(name: string, props?: Props, revenue?: { value: number; currency: string }, conversion?: Conversion): void;
   pageview(url?: string, routePattern?: string): void;
   /** Count a JS error against the current page (`js_error` event). */
   noteError(entry?: Pick<ErrorEntry, "type" | "message">): void;
@@ -296,7 +299,7 @@ export function startAnalytics(
     }
   };
 
-  const track: AnalyticsController["track"] = (name, props, revenue) => {
+  const track: AnalyticsController["track"] = (name, props, revenue, conversion) => {
     if (destroyed || !page) return;
     try {
       const e = base("event");
@@ -314,6 +317,7 @@ export function startAnalytics(
       if (revenue && Number.isFinite(revenue.value) && typeof revenue.currency === "string") {
         e.revenue = { value: revenue.value, currency: revenue.currency.slice(0, 3).toUpperCase() };
       }
+      Object.assign(e, conversionFields(conversion));
       enqueue(e);
     } catch {
       /* never throw */

@@ -119,6 +119,30 @@ The reporter always gets a confirmation. If the send fails, the report is
 queued in IndexedDB and `report()` resolves with a provisional
 `SPT-PENDING-xxxx` receipt (`queued: true`). The queue delivers it later.
 
+### Goals and funnels
+
+Declare goals and funnels where the conversion happens, the way you raise a
+flag: Console lists them from the first event, with nothing to set up there.
+
+```ts
+// module scope: the steps, in order (typed — `checkout.step("typo")` won't compile)
+export const checkout = spotter.funnel("checkout", ["cart", "shipping", "payment", "paid"]);
+export const proCheckout = spotter.funnel("checkout-pro", ["plans", "payment", "paid"]);
+
+checkout.step("cart");
+// One checkout can count toward a broad funnel, a specific one and a goal.
+// Give them the same id (a checkout session, an order) and Console counts it
+// once in its totals: conversions, revenue and event counts.
+const paid = { id: session.id, revenue: { value: 49, currency: "USD" } };
+checkout.step("paid", paid);
+proCheckout.step("paid", paid);
+spotter.goal("purchase", paid);
+```
+
+A goal is the event `name`; a funnel step is the event `<funnel>:<step>`.
+Both work on the server too (a payment webhook, say: `await spotter.flush()`
+before returning). Console stores only a hash of the id.
+
 ### Automatic reports
 
 `autoReport` files a report whenever something goes wrong, with no one
@@ -166,6 +190,7 @@ declare module "@trusplex/spotter/core" {
   interface SpotterFeatureFlags { analytics: false }       // spotter.track() is now a type error
   interface SpotterRegister {
     events: "signup_completed" | "checkout_started";       // typed track() names
+    goals: "purchase" | "trial_started";                    // typed goal() names
     fields: { order_number: string; plan: "free" | "pro" }; // typed custom fields
     contexts: { cart: { items: number; total: number } };   // typed setContext()
   }

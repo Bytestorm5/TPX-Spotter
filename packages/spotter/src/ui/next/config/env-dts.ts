@@ -1,6 +1,6 @@
 /**
  * The generated `spotter-env.d.ts`: feature flags and registered names as
- * types, so `spotter.track()` with analytics compiled out, or an event name
+ * types, so `spotter.track()` with analytics compiled out, or an event (or goal) name
  * that isn't registered, is a TypeScript error (see `core/typed.ts`).
  *
  * Pure string generation; `withSpotter()` writes it (only when the content
@@ -14,6 +14,8 @@ export type FieldTypeSpec = CustomFieldType | { type: CustomFieldType; options?:
 export interface SpotterTypesOptions {
   /** Custom analytics event names (`spotter.track(name)`). */
   events?: readonly string[];
+  /** Goal names (`spotter.goal(name)`). */
+  goals?: readonly string[];
   /** Custom field ids and their types; `select` options become a string-literal union. */
   fields?: Record<string, FieldTypeSpec>;
   /** Named contexts (`spotter.setContext(name, …)`). */
@@ -51,6 +53,9 @@ export function generateEnvDts(features: Record<FeatureName, boolean>, types: Sp
   const register: string[] = [];
   if (types.events && types.events.length > 0) {
     register.push(`    events: ${[...new Set(types.events)].map(lit).join(" | ")};`);
+  }
+  if (types.goals && types.goals.length > 0) {
+    register.push(`    goals: ${[...new Set(types.goals)].map(lit).join(" | ")};`);
   }
   if (types.fields && Object.keys(types.fields).length > 0) {
     const body = Object.entries(types.fields)

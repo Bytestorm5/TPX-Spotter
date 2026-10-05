@@ -47,7 +47,7 @@
  */
 import { CONSOLE_ORIGIN, detectRuntime, resolveConfig, type ResolvedConfig } from "./config.ts";
 import { devCheckConfig, devWarn } from "./dev.ts";
-import type { Engine, EngineHost, Scope } from "./engine.ts";
+import type { Conversion, Engine, EngineHost, Scope } from "./engine.ts";
 import type { Session } from "./session.ts";
 import { COMPILED_FEATURES, DEV, type FeatureName } from "./features.ts";
 import { iso, tabSessionId } from "./ids.ts";
@@ -55,6 +55,7 @@ import { storedReports } from "./stored-reports.ts";
 import type { Breadcrumb, RemoteConfig } from "./schema.ts";
 import type {
   ConsentState,
+  ConversionOptions,
   ExceptionContext,
   FlagOptions,
   ReporterMode,
@@ -69,6 +70,9 @@ import type {
 } from "./types.ts";
 
 export type SpotterInstance = SpotterClient & SpotterWidgetApi;
+
+type Props = Record<string, string | number | boolean>;
+type Revenue = { value: number; currency: string };
 
 // Read inline at each `if`: a bundler define then folds dev-only branches (and their
 // strings) while this file is parsed; the imported DEV is only known after linking.
@@ -214,6 +218,11 @@ export function createSpotter(): SpotterInstance {
   }
 
   const featureOn = (f: FeatureName) => (config ? config.features[f] : COMPILED_FEATURES[f]);
+
+  /** `track()`, `goal()` and funnel steps: the analytics chunk (or, on the server, the session) sends it. */
+  function track(api: string, name: string, props?: Props, revenue?: Revenue, conversion?: Conversion): void {
+    if (ensureInit(api) && !off("analytics", api)) later((e) => e.track(name, props, revenue, conversion));
+  }
 
   function off(f: FeatureName, api: string): boolean {
     if (featureOn(f)) return false;
@@ -414,8 +423,21 @@ export function createSpotter(): SpotterInstance {
     },
 
     track(name, props, revenue) {
-      if (!ensureInit("track") || off("analytics", "track")) return;
-      later((e) => e.track(name, props, revenue));
+      track("track", name, props, revenue);
+    },
+    goal(name, o: ConversionOptions = {}) {
+      track("goal", name, o.props, o.revenue, { goal: name, conversionId: o.id });
+    },
+    funnel(name, steps) {
+      return {
+        name,
+        steps,
+        step(step, o: ConversionOptions = {}) {
+          if ((typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) && !steps.includes(step))
+            devWarn(`funnel "${name}" has no step "${step}"; declare it in spotter.funnel("${name}", [...]).`);
+          track("funnel", `${name}:${step}`, o.props, o.revenue, { funnel: { name, step, steps: [...steps] }, conversionId: o.id });
+        },
+      };
     },
     pageview(url, routePattern) {
       if (!ensureInit("pageview") || off("analytics", "pageview")) return;

@@ -47,6 +47,11 @@ describe("generated types", () => {
       `import { spotter } from "CORE";
 spotter.track("anything", { plan: "pro" });
 spotter.flag("x", { severity: "warning" });
+spotter.goal("purchase", { id: "cs_1", revenue: { value: 9, currency: "USD" } });
+const checkout = spotter.funnel("checkout", ["cart", "paid"]);
+checkout.step("paid", { id: "cs_1" });
+// @ts-expect-error not one of the funnel's steps
+checkout.step("refunded");
 spotter.setContext("cart", { items: 2 });
 void spotter.report({ title: "t", fields: { anything: 1 } });
 const v: unknown = 1;
@@ -69,6 +74,10 @@ declare module "CORE" {
 spotter.track("signup");
 // @ts-expect-error analytics is compiled out
 spotter.pageview();
+// @ts-expect-error analytics is compiled out
+spotter.goal("purchase");
+// @ts-expect-error analytics is compiled out
+spotter.funnel("checkout", ["cart"]);
 // @ts-expect-error flags are compiled out
 spotter.flag("x");
 // @ts-expect-error recording is compiled out
@@ -87,11 +96,15 @@ void spotter.report({ title: "reports always work" });
 declare module "CORE" {
   interface SpotterRegister {
     events: "signup_completed" | "checkout_started";
+    goals: "purchase";
     fields: { order_number: string; plan: "free" | "pro" };
     contexts: { cart: { items: number; total: number } };
   }
 }
 spotter.track("signup_completed", { plan: "pro" });
+spotter.goal("purchase");
+// @ts-expect-error not a registered goal
+spotter.goal("purchased");
 // @ts-expect-error not a registered event
 spotter.track("signup_complete");
 void spotter.report({ title: "t", fields: { plan: "pro", order_number: "A-1" } });

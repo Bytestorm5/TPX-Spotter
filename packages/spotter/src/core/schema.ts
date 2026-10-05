@@ -528,6 +528,21 @@ export interface AnalyticsEvent {
   language?: string;
   release?: ReleaseInfo;
   flags?: Record<string, Json>;
+  /** `event` from `spotter.goal(name)`: the goal it converts (the event's `name` is the goal's). */
+  goal?: string;
+  /**
+   * `event` from a funnel step (`spotter.funnel(name, steps).step(step)`): the
+   * funnel as declared in code, steps in order. The event's `name` is
+   * `<funnel>:<step>`, so the same step of two funnels stays two events.
+   */
+  funnel?: { name: string; step: string; steps: string[] };
+  /**
+   * The app's id for what converted — a checkout session, an order. One
+   * checkout may report to several goals and funnels (a specific funnel and
+   * a broad one); Console counts each id once in its aggregates (conversions,
+   * revenue, event counts), however many of them it reached.
+   */
+  conversionId?: string;
 }
 
 export interface AnalyticsBatch {

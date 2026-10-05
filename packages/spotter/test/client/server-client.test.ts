@@ -55,6 +55,23 @@ describe("core on the server", () => {
     expect(transport.flagOccurrences[0]).toMatchObject({ name: "charge.retry", sessionId: "sess_xyz", count: 1 });
   });
 
+  it("sends goals and funnel steps from the server, with the conversion id", async () => {
+    const transport = createTestTransport();
+    const spotter = createSpotter().init({ transport });
+    const checkout = spotter.funnel("checkout", ["cart", "paid"]);
+    const eu = spotter.funnel("checkout-eu", ["cart", "paid"]);
+    expect(checkout.steps).toEqual(["cart", "paid"]);
+    // One checkout reports to a broad funnel, a specific one and a goal, under one id.
+    checkout.step("paid", { id: "cs_1", revenue: { value: 20, currency: "EUR" } });
+    eu.step("paid", { id: "cs_1", revenue: { value: 20, currency: "EUR" } });
+    spotter.goal("purchase", { id: "cs_1", props: { plan: "pro" } });
+    await vi.waitFor(() => expect(transport.analyticsEvents).toHaveLength(3));
+    const [a, b, c] = transport.analyticsEvents;
+    expect(a).toMatchObject({ type: "event", name: "checkout:paid", conversionId: "cs_1", funnel: { name: "checkout", step: "paid", steps: ["cart", "paid"] } });
+    expect(b).toMatchObject({ name: "checkout-eu:paid", conversionId: "cs_1", funnel: { name: "checkout-eu" } });
+    expect(c).toMatchObject({ name: "purchase", goal: "purchase", conversionId: "cs_1", props: { plan: "pro" } });
+  });
+
   it("works zero-config from env without init()", async () => {
     vi.stubEnv("SPOTTER_SECRET_KEY", "sk_test_abcdefgh");
     const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {

@@ -317,6 +317,28 @@ export interface FlagOptions {
   fingerprint?: string[];
 }
 
+/** `spotter.goal()` and funnel steps. */
+export interface ConversionOptions {
+  /**
+   * Your id for what converted — a checkout session, an order. When one
+   * checkout reports to several goals or funnels (a specific funnel and a
+   * broad one), give each the same id: Console counts it once in its
+   * aggregates (conversions, revenue, event counts). Console stores only a
+   * hash of it.
+   */
+  id?: string;
+  props?: Record<string, string | number | boolean>;
+  revenue?: { value: number; currency: string };
+}
+
+/** A funnel declared in code: `spotter.funnel("checkout", ["cart", "shipping", "paid"])`. */
+export interface SpotterFunnel<S extends string = string> {
+  readonly name: string;
+  readonly steps: readonly S[];
+  /** The visitor reached `step` (sent as the event `<funnel>:<step>`). */
+  step(step: S, options?: ConversionOptions): void;
+}
+
 export interface ReportInput {
   title: string;
   description?: string;
@@ -430,6 +452,17 @@ export interface SpotterClient {
   plusOne(id: string): Promise<number | null>;
 
   track(name: string, props?: Record<string, string | number | boolean>, revenue?: { value: number; currency: string }): void;
+  /**
+   * A conversion of the goal `name`, declared here in code: Console lists the
+   * goal on its own from the first one, no setup there. The event is `name`.
+   */
+  goal(name: string, options?: ConversionOptions): void;
+  /**
+   * Declare a funnel — its steps, in order — and get a handle to report the
+   * steps with. Console builds the funnel from the declaration. Cheap: call it
+   * at module scope and share the handle.
+   */
+  funnel<const S extends string>(name: string, steps: readonly S[]): SpotterFunnel<S>;
   pageview(url?: string, routePattern?: string): void;
 
   open(options?: OpenOptions): void;
