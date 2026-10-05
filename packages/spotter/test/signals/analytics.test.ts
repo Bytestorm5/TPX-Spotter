@@ -119,15 +119,21 @@ describe("startAnalytics", () => {
 
   it("sends goals and funnel steps with their declaration and the caller's conversion id", () => {
     ctl = startAnalytics(rt, {}, send);
-    ctl.track("purchase", undefined, { value: 49, currency: "usd" }, { goal: "purchase", conversionId: "cs_123" });
+    ctl.track("purchase", undefined, { value: 49, currency: "usd" }, {
+      goal: "purchase",
+      id: "cs_123",
+      metadata: { plan: "pro", items: [{ sku: "A-1", qty: 2 }], buyer: "a@b.co", bad: Number.NaN, fn: (() => 1) as unknown as string },
+    });
     ctl.track("checkout:paid", undefined, undefined, {
       funnel: { name: "checkout", step: "paid", steps: ["cart", "shipping", "paid"] },
-      conversionId: "cs_123",
+      id: "cs_123",
     });
     ctl.track("plain");
     ctl.flush();
     const events = all().filter((e) => e.type === "event");
     expect(events[0]).toMatchObject({ name: "purchase", goal: "purchase", conversionId: "cs_123", revenue: { value: 49, currency: "USD" } });
+    // Arbitrary JSON, redacted like a context; values that aren't JSON are dropped.
+    expect(events[0]?.metadata).toEqual({ plan: "pro", items: [{ sku: "A-1", qty: 2 }], buyer: "[redacted:email]" });
     expect(events[1]).toMatchObject({
       name: "checkout:paid",
       funnel: { name: "checkout", step: "paid", steps: ["cart", "shipping", "paid"] },
@@ -136,6 +142,20 @@ describe("startAnalytics", () => {
     expect(events[1]).not.toHaveProperty("goal");
     expect(events[2]).not.toHaveProperty("conversionId");
     expect(events[2]).not.toHaveProperty("funnel");
+  });
+
+  it("bounds conversion metadata: depth, size, and never a non-object", () => {
+    ctl = startAnalytics(rt, {}, send);
+    let deep: Record<string, unknown> = { leaf: 1 };
+    for (let i = 0; i < 12; i++) deep = { next: deep };
+    ctl.track("a", undefined, undefined, { goal: "a", metadata: deep as never });
+    ctl.track("b", undefined, undefined, { goal: "b", metadata: { blob: Array.from({ length: 50 }, () => "x".repeat(1000)) } });
+    ctl.track("c", undefined, undefined, { goal: "c", metadata: ["not", "an", "object"] as never });
+    ctl.flush();
+    const [a, b, c] = all().filter((e) => e.type === "event");
+    expect(JSON.stringify(a?.metadata)).not.toContain("leaf");
+    expect(b?.metadata).toEqual({ truncated: true });
+    expect(c).not.toHaveProperty("metadata");
   });
 
   it("records outbound links, downloads and form submits automatically", () => {

@@ -317,7 +317,7 @@ export function startAnalytics(
       if (revenue && Number.isFinite(revenue.value) && typeof revenue.currency === "string") {
         e.revenue = { value: revenue.value, currency: revenue.currency.slice(0, 3).toUpperCase() };
       }
-      Object.assign(e, conversionFields(conversion));
+      Object.assign(e, conversionFields(conversion, (s) => rt.redact(s, "context")));
       enqueue(e);
     } catch {
       /* never throw */

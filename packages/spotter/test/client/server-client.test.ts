@@ -64,12 +64,18 @@ describe("core on the server", () => {
     // One checkout reports to a broad funnel, a specific one and a goal, under one id.
     checkout.step("paid", { id: "cs_1", revenue: { value: 20, currency: "EUR" } });
     eu.step("paid", { id: "cs_1", revenue: { value: 20, currency: "EUR" } });
-    spotter.goal("purchase", { id: "cs_1", props: { plan: "pro" } });
+    spotter.goal("purchase", { id: "cs_1", props: { plan: "pro" }, metadata: { coupon: "SPRING", items: [{ sku: "A", qty: 1 }] } });
     await vi.waitFor(() => expect(transport.analyticsEvents).toHaveLength(3));
     const [a, b, c] = transport.analyticsEvents;
     expect(a).toMatchObject({ type: "event", name: "checkout:paid", conversionId: "cs_1", funnel: { name: "checkout", step: "paid", steps: ["cart", "paid"] } });
     expect(b).toMatchObject({ name: "checkout-eu:paid", conversionId: "cs_1", funnel: { name: "checkout-eu" } });
-    expect(c).toMatchObject({ name: "purchase", goal: "purchase", conversionId: "cs_1", props: { plan: "pro" } });
+    expect(c).toMatchObject({
+      name: "purchase",
+      goal: "purchase",
+      conversionId: "cs_1",
+      props: { plan: "pro" },
+      metadata: { coupon: "SPRING", items: [{ sku: "A", qty: 1 }] },
+    });
   });
 
   it("works zero-config from env without init()", async () => {

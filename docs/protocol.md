@@ -39,7 +39,7 @@ and is sent as `text/plain` (a CORS "simple request": no preflight).
 | `POST /v1/reports/:id/plus-one` | `{ token?, reporter? }` → `{ count }` |
 | `GET /v1/similar?url=&selector=` | → `SimilarIssue[]` (team and guest mode by default) |
 | `POST /v1/flags` | `FlagBatch` → `{ accepted, promoted: ReportReceipt[] }` |
-| `POST /v1/events` | `AnalyticsBatch` → 202. Event types: `pageview`, `event`, `engagement`, `vitals` and `click` (heatmaps: `click: { x, y, selector? }`, x and y as fractions of the document's width and height). An `event` from `spotter.goal()` carries `goal`; one from a funnel step carries `funnel: { name, step, steps }` and is named `<funnel>:<step>`. Either may carry `conversionId`, the app's id for what converted, which aggregates count once however many goals and funnels report it. |
+| `POST /v1/events` | `AnalyticsBatch` → 202. Event types: `pageview`, `event`, `engagement`, `vitals` and `click` (heatmaps: `click: { x, y, selector? }`, x and y as fractions of the document's width and height). An `event` from `spotter.goal()` carries `goal`; one from a funnel step carries `funnel: { name, step, steps }` and is named `<funnel>:<step>`. Either may carry `conversionId`, the app's id for what converted, which aggregates count once however many goals and funnels report it, and `metadata`, arbitrary JSON about the conversion (≤ 8 KB), merged per conversion id. |
 | `POST /v1/sessions/:sessionId/replay?seq=` | gzip rrweb segment (sampled or on-error replay) → 201 |
 | `POST /v1/releases` | `ReleaseDeclaration` (secret key) → `{ release }` |
 | `PUT /v1/releases/:release/sourcemaps?file=` | raw `.map` (secret key) → 201 |

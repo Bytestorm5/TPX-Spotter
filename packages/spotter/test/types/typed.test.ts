@@ -47,7 +47,7 @@ describe("generated types", () => {
       `import { spotter } from "CORE";
 spotter.track("anything", { plan: "pro" });
 spotter.flag("x", { severity: "warning" });
-spotter.goal("purchase", { id: "cs_1", revenue: { value: 9, currency: "USD" } });
+spotter.goal("purchase", { id: "cs_1", revenue: { value: 9, currency: "USD" }, metadata: { plan: "pro", items: [{ sku: "A", qty: 1 }] } });
 const checkout = spotter.funnel("checkout", ["cart", "paid"]);
 checkout.step("paid", { id: "cs_1" });
 // @ts-expect-error not one of the funnel's steps

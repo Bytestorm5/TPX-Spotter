@@ -543,6 +543,12 @@ export interface AnalyticsEvent {
    * revenue, event counts), however many of them it reached.
    */
   conversionId?: string;
+  /**
+   * Arbitrary JSON the app attaches to the conversion (plan, coupon, items…),
+   * redacted like any context. Console merges it per conversion id, later
+   * keys winning, and shows it beside the conversion's revenue.
+   */
+  metadata?: Record<string, Json>;
 }
 
 export interface AnalyticsBatch {

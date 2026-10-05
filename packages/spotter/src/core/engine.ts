@@ -90,8 +90,8 @@ export interface EngineCore {
   isDestroyed(): boolean;
 }
 
-/** What `goal()` and funnel steps add to a custom event. */
-export type Conversion = Pick<AnalyticsEvent, "goal" | "funnel" | "conversionId">;
+/** What `goal()` and funnel steps add to a custom event: the declaration, and the caller's `id` and `metadata`. */
+export type Conversion = Pick<AnalyticsEvent, "goal" | "funnel" | "metadata"> & { id?: string };
 
 export interface Engine {
   readonly runtime: Runtime;

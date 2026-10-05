@@ -329,6 +329,13 @@ export interface ConversionOptions {
   id?: string;
   props?: Record<string, string | number | boolean>;
   revenue?: { value: number; currency: string };
+  /**
+   * Any JSON about this conversion — the plan, a coupon, the line items.
+   * Report it on whichever goal or step knows it: Console merges it per `id`
+   * (later keys win) and shows it with the conversion's revenue. Redacted
+   * like a context; bounded (depth 8, 50 keys an object, 8 KB in all).
+   */
+  metadata?: Record<string, Json>;
 }
 
 /** A funnel declared in code: `spotter.funnel("checkout", ["cart", "shipping", "paid"])`. */

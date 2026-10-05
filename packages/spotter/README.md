@@ -133,7 +133,12 @@ checkout.step("cart");
 // One checkout can count toward a broad funnel, a specific one and a goal.
 // Give them the same id (a checkout session, an order) and Console counts it
 // once in its totals: conversions, revenue and event counts.
-const paid = { id: session.id, revenue: { value: 49, currency: "USD" } };
+// `metadata` is any JSON about the conversion; Console merges it per id and shows it with the revenue.
+const paid = {
+  id: session.id,
+  revenue: { value: 49, currency: "USD" },
+  metadata: { plan: "pro", coupon: "SPRING", items: [{ sku: "PRO-12", qty: 1 }] },
+};
 checkout.step("paid", paid);
 proCheckout.step("paid", paid);
 spotter.goal("purchase", paid);
@@ -141,7 +146,10 @@ spotter.goal("purchase", paid);
 
 A goal is the event `name`; a funnel step is the event `<funnel>:<step>`.
 Both work on the server too (a payment webhook, say: `await spotter.flush()`
-before returning). Console stores only a hash of the id.
+before returning). Console stores only a hash of the id. Metadata is
+redacted like a context and bounded (depth 8, 50 keys an object, 8 KB); a
+step that knows more later can send more under the same id, and later keys
+win.
 
 ### Automatic reports
 

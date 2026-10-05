@@ -426,7 +426,7 @@ export function createSpotter(): SpotterInstance {
       track("track", name, props, revenue);
     },
     goal(name, o: ConversionOptions = {}) {
-      track("goal", name, o.props, o.revenue, { goal: name, conversionId: o.id });
+      track("goal", name, o.props, o.revenue, { ...o, goal: name });
     },
     funnel(name, steps) {
       return {
@@ -435,7 +435,7 @@ export function createSpotter(): SpotterInstance {
         step(step, o: ConversionOptions = {}) {
           if ((typeof __SPOTTER_DEV__ === "boolean" ? __SPOTTER_DEV__ : DEV) && !steps.includes(step))
             devWarn(`funnel "${name}" has no step "${step}"; declare it in spotter.funnel("${name}", [...]).`);
-          track("funnel", `${name}:${step}`, o.props, o.revenue, { funnel: { name, step, steps: [...steps] }, conversionId: o.id });
+          track("funnel", `${name}:${step}`, o.props, o.revenue, { ...o, funnel: { name, step, steps: [...steps] } });
         },
       };
     },

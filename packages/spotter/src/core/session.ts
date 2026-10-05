@@ -939,7 +939,7 @@ export function createSession(core: EngineCore): Session {
         pageviewId: "",
         ...(props ? { props } : {}),
         ...(revenue ? { revenue } : {}),
-        ...conversionFields(conversion),
+        ...conversionFields(conversion, (s) => redactor.redact(s, "context")),
       };
       host.emit("track", event);
       void transport.events({ key: cfg().project, events: [event], sdk: sdk() }).catch(() => {});
